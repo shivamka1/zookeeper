@@ -17,6 +17,10 @@ public class Master implements Watcher {
         zk = new ZooKeeper(connectString, 15000, this);
     }
 
+    void stopZk() throws InterruptedException {
+        zk.close();
+    }
+
     @Override
     public void process(WatchedEvent watchedEvent) {
         System.out.println(watchedEvent);
@@ -27,5 +31,7 @@ public class Master implements Watcher {
         master.startZk();
 
         Thread.sleep(60000);
+
+        master.stopZk();
     }
 }
