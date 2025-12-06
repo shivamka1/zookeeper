@@ -4,6 +4,7 @@ import mastership.async.Bootstrapper;
 import mastership.async.IdGenerator;
 import mastership.async.SessionState;
 import org.apache.zookeeper.ZooKeeper;
+
 import java.io.IOException;
 
 public class Worker {
@@ -11,8 +12,9 @@ public class Worker {
     private final String connectString;
     private final String serverId = IdGenerator.newId();
 
-    private Bootstrapper bootstrapper;
     private final SessionState sessionState = new SessionState();
+    private Bootstrapper bootstrapper;
+    private RegisterWorker registerWorker;
 
     Worker(String connectString) {
         this.connectString = connectString;
@@ -29,6 +31,7 @@ public class Worker {
     void startZk() throws IOException {
         zk = new ZooKeeper(this.connectString, 15000, sessionState);
         bootstrapper = new Bootstrapper(zk);
+        registerWorker = new RegisterWorker(serverId, zk);
     }
 
     void stopZk() throws InterruptedException {
@@ -49,6 +52,9 @@ public class Worker {
         }
 
         worker.bootstrap();
+
+        // Register the worker so that the leader knows that the worker is here
+        worker.registerWorker.register();
 
         while (!worker.isExpired()) {
             Thread.sleep(1000);
