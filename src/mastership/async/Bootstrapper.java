@@ -9,7 +9,7 @@ public class Bootstrapper {
 
     private final ZooKeeper zk;
 
-    Bootstrapper(ZooKeeper zk) {
+    public Bootstrapper(ZooKeeper zk) {
         this.zk = zk;
     }
 

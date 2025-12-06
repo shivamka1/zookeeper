@@ -1,20 +1,18 @@
-package mastership.async;
+package mastership.async.worker;
 
+import mastership.async.Bootstrapper;
+import mastership.async.IdGenerator;
+import mastership.async.SessionState;
 import org.apache.zookeeper.ZooKeeper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 
 public class Worker {
-    private static final Logger LOG = LoggerFactory.getLogger(Worker.class);
-
     private ZooKeeper zk;
     private final String connectString;
     private final String serverId = IdGenerator.newId();
 
     private Bootstrapper bootstrapper;
-    private final SessionState sessionState = new SessionState(LOG);
+    private final SessionState sessionState = new SessionState();
 
     Worker(String connectString) {
         this.connectString = connectString;

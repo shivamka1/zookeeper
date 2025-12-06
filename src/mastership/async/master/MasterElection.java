@@ -1,5 +1,6 @@
-package mastership.async;
+package mastership.async.master;
 
+import mastership.async.IdGenerator;
 import org.apache.zookeeper.*;
 import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;

@@ -1,20 +1,17 @@
-package mastership.async;
+package mastership.async.master;
 
+import mastership.async.Bootstrapper;
+import mastership.async.SessionState;
 import org.apache.zookeeper.ZooKeeper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 
 public class Master {
-    private static final Logger LOG = LoggerFactory.getLogger(Master.class);
-
     private final String connectString;
     private ZooKeeper zk;
 
     private Bootstrapper bootstrapper;
     private MasterElection masterElection;
-    private final SessionState sessionState = new SessionState(LOG);
+    private final SessionState sessionState = new SessionState();
 
     public Master(String connectString) {
         this.connectString = connectString;

@@ -1,4 +1,4 @@
-package mastership.async;
+package mastership.async.master;
 
 public enum MasterState {
     RUNNING,

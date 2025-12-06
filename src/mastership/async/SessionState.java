@@ -3,11 +3,12 @@ package mastership.async;
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.function.Consumer;
 
 public class SessionState implements Watcher {
-    private final Logger log;
+    private static final Logger LOG = LoggerFactory.getLogger(SessionState.class);
 
     /**
      * connected and expired are volatile because they are:
@@ -26,12 +27,10 @@ public class SessionState implements Watcher {
 
     private Consumer<Event.KeeperState> eventListener;
 
-    public SessionState(Logger log) {
-        this.log = log;
+    public SessionState() {
     }
 
-    public SessionState(Logger log, Consumer<Event.KeeperState> eventListener) {
-        this.log = log;
+    public SessionState(Consumer<Event.KeeperState> eventListener) {
         this.eventListener = eventListener;
     }
 
@@ -41,7 +40,7 @@ public class SessionState implements Watcher {
 
     @Override
     public void process(WatchedEvent event) {
-        log.info("[Session Event]: {}", event);
+        LOG.info("[Session Event]: {}", event);
 
         // ZooKeeper uses EventType.None for session state changes
         if (event.getType() != Event.EventType.None) {
@@ -55,7 +54,7 @@ public class SessionState implements Watcher {
             case Expired -> {
                 expired = true;
                 connected = false;
-                log.error("[Session Event] Session expired");
+                LOG.error("[Session Event] Session expired");
             }
         }
 
@@ -64,7 +63,7 @@ public class SessionState implements Watcher {
             try {
                 eventListener.accept(event.getState());
             } catch (Exception e) {
-                log.warn("[Session Event] Listener threw exception", e);
+                LOG.warn("[Session Event] Listener threw exception", e);
             }
         }
     }
