@@ -1,47 +1,31 @@
 package mastership.async;
 
-import org.apache.zookeeper.WatchedEvent;
-import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooKeeper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
-public class Master implements Watcher {
+public class Master {
     private static final Logger LOG = LoggerFactory.getLogger(Master.class);
 
     private final String connectString;
     private ZooKeeper zk;
 
-    /**
-     * connected and expired are volatile because they are:
-     * • Written from the ZooKeeper event thread (inside process(WatchedEvent e)), and
-     * • Read from the main thread (inside isConnected(), isExpired(), and the loops in main).
-     * <p>
-     * If connected and expired were plain booleans:
-     * • The main thread might keep seeing the old value cached in a register or CPU cache.
-     * • It might spin forever in the while (!m.isConnected()) loop even though the event thread has already set connected = true.
-     * • You would get weird “hangs” that only appear under some timings or JVM optimisations.
-     * <p>
-     * This is a classic visibility problem in Java’s memory model.
-     */
-    private volatile boolean connected = false;
-    private volatile boolean expired = false;
-
     private Bootstrapper bootstrapper;
     private MasterElection masterElection;
+    private final SessionState sessionState = new SessionState(LOG);
 
     public Master(String connectString) {
         this.connectString = connectString;
     }
 
     boolean isConnected() {
-        return connected;
+        return sessionState.isConnected();
     }
 
     boolean isExpired() {
-        return expired;
+        return sessionState.isExpired();
     }
 
     MasterState getMasterState() {
@@ -53,7 +37,7 @@ public class Master implements Watcher {
     }
 
     void startZk() throws IOException {
-        zk = new ZooKeeper(connectString, 15000, this);
+        zk = new ZooKeeper(connectString, 15000, sessionState);
         bootstrapper = new Bootstrapper(zk);
         masterElection = new MasterElection(zk);
     }
@@ -67,22 +51,6 @@ public class Master implements Watcher {
         bootstrapper.createPersistent("/assign");
         bootstrapper.createPersistent("/tasks");
         bootstrapper.createPersistent("/status");
-    }
-
-    @Override
-    public void process(WatchedEvent event) {
-        LOG.info("[{}] processing event: {}", getClass().getSimpleName(), event.toString());
-        if (event.getType() == Event.EventType.None) {
-            switch (event.getState()) {
-                case SyncConnected -> connected = true;
-                case Disconnected -> connected = false;
-                case Expired -> {
-                    expired = true;
-                    connected = false;
-                    LOG.error("Session expiration");
-                }
-            }
-        }
     }
 
     static void main(String[] args) throws Exception {

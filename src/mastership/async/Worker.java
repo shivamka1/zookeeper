@@ -1,39 +1,35 @@
 package mastership.async;
 
-import org.apache.zookeeper.WatchedEvent;
-import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooKeeper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
-public class Worker implements Watcher {
+public class Worker {
     private static final Logger LOG = LoggerFactory.getLogger(Worker.class);
 
     private ZooKeeper zk;
     private final String connectString;
     private final String serverId = IdGenerator.newId();
 
-    private volatile boolean connected = false;
-    private volatile boolean expired = false;
-
     private Bootstrapper bootstrapper;
+    private final SessionState sessionState = new SessionState(LOG);
 
     Worker(String connectString) {
         this.connectString = connectString;
     }
 
     boolean isConnected() {
-        return this.connected;
+        return sessionState.isConnected();
     }
 
     boolean isExpired() {
-        return this.expired;
+        return sessionState.isExpired();
     }
 
     void startZk() throws IOException {
-        zk = new ZooKeeper(this.connectString, 15000, this);
+        zk = new ZooKeeper(this.connectString, 15000, sessionState);
         bootstrapper = new Bootstrapper(zk);
     }
 
@@ -45,23 +41,6 @@ public class Worker implements Watcher {
         bootstrapper.createPersistent("/assign/worker-" + serverId);
     }
 
-    @Override
-    public void process(WatchedEvent event) {
-        LOG.info("[{}] processing event: {}", getClass().getSimpleName(), event.toString());
-        if (event.getType() == Event.EventType.None) {
-            switch (event.getState()) {
-                case SyncConnected -> connected = true;
-                case Disconnected -> connected = false;
-                case Expired -> {
-                    expired = true;
-                    connected = false;
-                    LOG.error("Session expiration");
-                }
-            }
-        }
-    }
-
-
     static void main(String[] args) throws Exception {
         Worker worker = new Worker(args[0]);
 
@@ -72,5 +51,11 @@ public class Worker implements Watcher {
         }
 
         worker.bootstrap();
+
+        while (!worker.isExpired()) {
+            Thread.sleep(1000);
+        }
+
+        worker.stopZk();
     }
 }
