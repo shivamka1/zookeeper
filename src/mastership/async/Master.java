@@ -29,37 +29,11 @@ public class Master implements Watcher {
     private volatile boolean connected = false;
     private volatile boolean expired = false;
 
-    private MasterBootstrap masterBootstrap;
+    private Bootstrapper bootstrapper;
     private MasterElection masterElection;
 
     public Master(String connectString) {
         this.connectString = connectString;
-    }
-
-    void startZk() throws IOException {
-        zk = new ZooKeeper(connectString, 15000, this);
-        masterBootstrap = new MasterBootstrap(zk);
-        masterElection = new MasterElection(zk);
-    }
-
-    void stopZk() throws InterruptedException {
-        zk.close();
-    }
-
-    @Override
-    public void process(WatchedEvent event) {
-        LOG.info("Processing event: {}", event.toString());
-        if (event.getType() == Event.EventType.None) {
-            switch (event.getState()) {
-                case SyncConnected -> connected = true;
-                case Disconnected -> connected = false;
-                case Expired -> {
-                    expired = true;
-                    connected = false;
-                    LOG.error("Session expiration");
-                }
-            }
-        }
     }
 
     boolean isConnected() {
@@ -78,6 +52,39 @@ public class Master implements Watcher {
         return masterElection.getServerId();
     }
 
+    void startZk() throws IOException {
+        zk = new ZooKeeper(connectString, 15000, this);
+        bootstrapper = new Bootstrapper(zk);
+        masterElection = new MasterElection(zk);
+    }
+
+    void stopZk() throws InterruptedException {
+        zk.close();
+    }
+
+    void bootstrap() {
+        bootstrapper.createPersistent("/workers");
+        bootstrapper.createPersistent("/assign");
+        bootstrapper.createPersistent("/tasks");
+        bootstrapper.createPersistent("/status");
+    }
+
+    @Override
+    public void process(WatchedEvent event) {
+        LOG.info("[{}] processing event: {}", getClass().getSimpleName(), event.toString());
+        if (event.getType() == Event.EventType.None) {
+            switch (event.getState()) {
+                case SyncConnected -> connected = true;
+                case Disconnected -> connected = false;
+                case Expired -> {
+                    expired = true;
+                    connected = false;
+                    LOG.error("Session expiration");
+                }
+            }
+        }
+    }
+
     static void main(String[] args) throws Exception {
         Master master = new Master(args[0]);
 
@@ -87,7 +94,7 @@ public class Master implements Watcher {
             Thread.sleep(100);
         }
 
-        master.masterBootstrap.bootstrap();
+        master.bootstrap();
         master.masterElection.runForMaster();
 
         while (!master.isExpired()) {

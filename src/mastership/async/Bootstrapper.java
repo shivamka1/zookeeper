@@ -4,23 +4,24 @@ import org.apache.zookeeper.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MasterBootstrap {
-    private static final Logger LOG = LoggerFactory.getLogger(MasterBootstrap.class);
+public class Bootstrapper {
+    private static final Logger LOG = LoggerFactory.getLogger(Bootstrapper.class);
 
     private final ZooKeeper zk;
 
-    MasterBootstrap(ZooKeeper zk) {
+    Bootstrapper(ZooKeeper zk) {
         this.zk = zk;
     }
 
     private final AsyncCallback.StringCallback createParentCallback = new AsyncCallback.StringCallback() {
         @Override
         public void processResult(int rc, String path, Object ctx, String name) {
-            switch (KeeperException.Code.get(rc)) {
+            KeeperException.Code code = KeeperException.Code.get(rc);
+            switch (code) {
                 // Retry: if it already exists, we'll get NODEEXISTS next time.
-                case CONNECTIONLOSS -> createParent(path, (byte[]) ctx);
-                case OK -> LOG.info("Parent created: {}", path);
-                case NODEEXISTS -> LOG.warn("Parent already registered: {}", path);
+                case CONNECTIONLOSS -> createPersistent(path, (byte[]) ctx);
+                case OK -> LOG.info("Parent znode created: {}", path);
+                case NODEEXISTS -> LOG.warn("Parent znode already registered: {}", path);
                 default -> LOG.error(
                         "Error creating parent {}",
                         path,
@@ -30,7 +31,7 @@ public class MasterBootstrap {
         }
     };
 
-    private void createParent(String path, byte[] data) {
+    void createPersistent(String path, byte[] data) {
         zk.create(
                 path,
                 data,
@@ -41,10 +42,7 @@ public class MasterBootstrap {
         );
     }
 
-    void bootstrap() {
-        createParent("/workers", new byte[0]);
-        createParent("/assign", new byte[0]);
-        createParent("/tasks", new byte[0]);
-        createParent("/status", new byte[0]);
+    public void createPersistent(String path) {
+        createPersistent(path, new byte[0]);
     }
 }

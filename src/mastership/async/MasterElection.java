@@ -5,14 +5,11 @@ import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Random;
-
 public class MasterElection {
     private static final Logger LOG = LoggerFactory.getLogger(MasterElection.class);
-    private final Random random = new Random(this.hashCode());
 
     private final ZooKeeper zk;
-    private final String serverId = Integer.toHexString(random.nextInt());
+    private final String serverId = IdGenerator.newId();
     private volatile MasterState state = MasterState.RUNNING;
 
     MasterElection(ZooKeeper zk) {
