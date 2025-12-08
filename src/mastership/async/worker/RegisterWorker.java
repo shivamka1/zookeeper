@@ -44,9 +44,9 @@ public class RegisterWorker {
         String path = "/workers/" + workerName;
         zk.create(
                 path,
-                "Idle".getBytes(),
+                "Idle".getBytes(),  // status stored in znode data
                 ZooDefs.Ids.OPEN_ACL_UNSAFE,
-                CreateMode.EPHEMERAL,
+                CreateMode.EPHEMERAL,   // remove automatically if worker crashes
                 createWorkerCallback,
                 null
         );
