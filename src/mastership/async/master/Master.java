@@ -10,8 +10,9 @@ public class Master {
     private ZooKeeper zk;
 
     private Bootstrapper bootstrapper;
-    private MasterElection masterElection;
     private final SessionState sessionState = new SessionState();
+    private MasterElection masterElection;
+    private WorkerManager workerManager;
 
     public Master(String connectString) {
         this.connectString = connectString;
@@ -37,6 +38,7 @@ public class Master {
         zk = new ZooKeeper(connectString, 15000, sessionState);
         bootstrapper = new Bootstrapper(zk);
         masterElection = new MasterElection(zk);
+        workerManager = new WorkerManager(zk);
     }
 
     void stopZk() throws InterruptedException {
