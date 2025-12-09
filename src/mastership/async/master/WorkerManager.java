@@ -191,6 +191,10 @@ public class WorkerManager {
         }
     };
 
+    // ZooKeeper version semantics for delete():
+    //   version = -1  → delete unconditionally (ignore the current znode version)
+    //   version ≥ 0   → delete only if the current znode version matches
+    // Using -1 ensures the assignment is removed regardless of concurrent updates.
     private void deleteAssignment(String path) {
         zk.delete(path, -1, deleteAssignmentCallback, null);
     }
