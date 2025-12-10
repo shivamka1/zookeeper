@@ -1,6 +1,6 @@
 package mastership.async.master;
 
-import mastership.async.WorkersCache;
+import mastership.async.ChildrenCache;
 import org.apache.zookeeper.*;
 import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
@@ -14,7 +14,7 @@ public class WorkerManager {
     private static final Logger LOG = LoggerFactory.getLogger(WorkerManager.class);
 
     private final ZooKeeper zk;
-    private WorkersCache workersCache = new WorkersCache();
+    private ChildrenCache childrenCache = new ChildrenCache();
 
     WorkerManager(ZooKeeper zk) {
         this.zk = zk;
@@ -61,13 +61,13 @@ public class WorkerManager {
     }
 
     private void recoverTasksAndRefreshCache(List<String> workers) {
-        if (workersCache.isEmpty()) {
-            workersCache = new WorkersCache(workers);
+        if (childrenCache.isEmpty()) {
+            childrenCache = new ChildrenCache(workers);
             return;
         }
 
         LOG.info("Updating worker list and checking for removed workers");
-        List<String> removedWorkers = workersCache.getRemovedSinceLastUpdateAndRefreshCache(workers);
+        List<String> removedWorkers = childrenCache.getRemovedSinceLastUpdateAndRefreshCache(workers);
 
         if (!removedWorkers.isEmpty()) {
             for (String worker : removedWorkers) {
