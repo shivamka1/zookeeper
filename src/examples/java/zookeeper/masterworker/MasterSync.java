@@ -1,4 +1,4 @@
-package mastership.sync;
+package zookeeper.masterworker;
 
 import org.apache.zookeeper.*;
 import org.apache.zookeeper.data.Stat;
@@ -8,7 +8,7 @@ import java.util.Random;
 
 import static org.apache.zookeeper.ZooDefs.Ids.OPEN_ACL_UNSAFE;
 
-public class Master implements Watcher {
+public class MasterSync implements Watcher {
     private final Random random = new Random(this.hashCode());
 
     private final String connectString;
@@ -16,7 +16,7 @@ public class Master implements Watcher {
     private boolean isLeader;
     private final String serverId = Integer.toHexString(random.nextInt());
 
-    public Master(String connectString) {
+    public MasterSync(String connectString) {
         this.connectString = connectString;
     }
 
@@ -61,7 +61,7 @@ public class Master implements Watcher {
     }
 
     static void main(String[] args) throws Exception {
-        Master master = new Master(args[0]);
+        MasterSync master = new MasterSync(args[0]);
 
         master.startZk();
         master.runForMaster();

@@ -1,4 +1,4 @@
-package mastership.async;
+package zookeeper.masterworker;
 
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;

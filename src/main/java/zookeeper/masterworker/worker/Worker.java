@@ -1,8 +1,8 @@
-package mastership.async.worker;
+package zookeeper.masterworker.worker;
 
-import mastership.async.Bootstrapper;
-import mastership.async.IdGenerator;
-import mastership.async.SessionState;
+import zookeeper.masterworker.Bootstrapper;
+import zookeeper.masterworker.IdGenerator;
+import zookeeper.masterworker.SessionState;
 import org.apache.zookeeper.ZooKeeper;
 
 import java.io.IOException;

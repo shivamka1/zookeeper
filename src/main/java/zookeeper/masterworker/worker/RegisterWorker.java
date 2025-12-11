@@ -1,4 +1,4 @@
-package mastership.async.worker;
+package zookeeper.masterworker.worker;
 
 import org.apache.zookeeper.*;
 import org.slf4j.Logger;

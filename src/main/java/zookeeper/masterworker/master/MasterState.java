@@ -1,4 +1,4 @@
-package mastership.async.master;
+package zookeeper.masterworker.master;
 
 public enum MasterState {
     RUNNING,

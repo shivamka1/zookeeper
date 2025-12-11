@@ -1,4 +1,4 @@
-package mastership.async;
+package zookeeper.masterworker;
 
 
 import org.apache.zookeeper.KeeperException;

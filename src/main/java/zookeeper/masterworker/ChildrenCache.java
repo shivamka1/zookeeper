@@ -1,4 +1,4 @@
-package mastership.async;
+package zookeeper.masterworker;
 
 import java.util.ArrayList;
 import java.util.List;

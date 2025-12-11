@@ -1,6 +1,5 @@
-package mastership.async.master.tasks;
+package zookeeper.masterworker.master.tasks;
 
-import mastership.async.ChildrenCache;
 import org.apache.zookeeper.*;
 import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
@@ -50,24 +49,22 @@ public class TaskAssignmentManager {
         );
     }
 
-    private final AsyncCallback.StringCallback assignTaskCallback = new AsyncCallback.StringCallback() {
+    private final AsyncCallback.MultiCallback assignTaskCallback = new AsyncCallback.MultiCallback() {
         @Override
-        public void processResult(int rc, String path, Object ctx, String name) {
+        public void processResult(int rc, String path, Object ctx, List<OpResult> opResults) {
             TaskCtx taskCtx = (TaskCtx) ctx;
             switch (KeeperException.Code.get(rc)) {
-                case CONNECTIONLOSS -> assignTask(taskCtx.task(), taskCtx.data());
+                case CONNECTIONLOSS -> assignTask(taskCtx.taskName(), taskCtx.taskData());
                 case OK -> {
-                    LOG.info("Task {} assigned correctly at {}", taskCtx.task(), path);
-                    deleteTask(taskCtx.task());
-                }
-                case NODEEXISTS -> {
-                    LOG.warn("Task {} already assigned at {}", taskCtx.task(), path);
-                    // Optionally: still try to delete the original /tasks/<task>
-                    deleteTask(taskCtx.task());
+                    LOG.info(
+                            "Task {} assigned atomically at {} and removed from /tasks",
+                            taskCtx.taskName(),
+                            taskCtx.path()
+                    );
                 }
                 default -> LOG.error(
                         "Error when trying to assign task {} at {}",
-                        taskCtx.task(),
+                        taskCtx.taskName(),
                         path,
                         KeeperException.create(KeeperException.Code.get(rc), path)
                 );
@@ -84,6 +81,7 @@ public class TaskAssignmentManager {
 
         String designateWorker = workers.get(random.nextInt(workers.size()));
         String assignmentPath = "/assign/" + designateWorker + "/" + taskName;
+        String taskPath = "/tasks/" + taskName;
 
         LOG.info(
                 "Assigning task {} to worker {} at {}",
@@ -92,14 +90,22 @@ public class TaskAssignmentManager {
                 assignmentPath
         );
 
-        zk.create(
-                assignmentPath,
-                taskData,
-                OPEN_ACL_UNSAFE,
-                CreateMode.PERSISTENT,
-                assignTaskCallback,
-                new TaskCtx(taskName, taskData)
-        );
+        // The transaction builder provides a fluent interface
+        zk.transaction()
+                .create(
+                        assignmentPath,
+                        taskData,
+                        OPEN_ACL_UNSAFE,
+                        CreateMode.PERSISTENT
+                ).delete(
+                        taskPath,
+                        -1
+                )
+                // Commit asynchronously with callback and context
+                .commit(
+                        assignTaskCallback,
+                        new TaskCtx(assignmentPath, taskName, taskData)
+                );
     }
 
     private final AsyncCallback.VoidCallback deleteTaskCallback = new AsyncCallback.VoidCallback() {

@@ -1,6 +1,6 @@
-package mastership.async.master.tasks;
+package zookeeper.masterworker.master.tasks;
 
-import mastership.async.ChildrenCache;
+import zookeeper.masterworker.ChildrenCache;
 import org.apache.zookeeper.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,14 +57,14 @@ public class TasksTracker {
         }
     };
 
-    // Update cache and trigger task assignment to next available worker.
+    // Update cache and trigger taskName assignment to next available worker.
     private void handleTasksUpdated(List<String> tasks) {
         LOG.info("Updating tasks list and checking for new tasks");
         List<String> newTasks = tasksCache.getAddedSinceLastUpdateAndRefreshCache(tasks);
 
         if (newTasks.isEmpty()) return;
 
-        LOG.info("Detected {} new task(s): {}", newTasks.size(), newTasks);
+        LOG.info("Detected {} new taskName(s): {}", newTasks.size(), newTasks);
         taskAssignmentManager.assignTasks(newTasks);
     }
 

@@ -1,15 +1,17 @@
+package zookeeper.masterworker;
+
 import org.apache.zookeeper.WatchedEvent;
 import org.apache.zookeeper.Watcher;
 import org.apache.zookeeper.ZooKeeper;
 
 import java.io.IOException;
 
-public class Master implements Watcher {
+public class MasterSimple implements Watcher {
 
     String connectString;
     ZooKeeper zk;
 
-    Master(String connectString) {
+    MasterSimple(String connectString) {
         this.connectString = connectString;
     }
 
@@ -27,7 +29,7 @@ public class Master implements Watcher {
     }
 
     static void main(String[] args) throws Exception {
-        Master master = new Master(args[0]);
+        MasterSimple master = new MasterSimple(args[0]);
         master.startZk();
 
         Thread.sleep(60000);

@@ -1,11 +1,11 @@
-package mastership.async.master;
+package zookeeper.masterworker.master;
 
-import mastership.async.Bootstrapper;
-import mastership.async.SessionState;
-import mastership.async.master.tasks.TaskAssignmentManager;
-import mastership.async.master.tasks.TaskReassignmentManager;
-import mastership.async.master.tasks.TasksTracker;
-import mastership.async.master.tasks.WorkersTracker;
+import zookeeper.masterworker.Bootstrapper;
+import zookeeper.masterworker.SessionState;
+import zookeeper.masterworker.master.tasks.TaskAssignmentManager;
+import zookeeper.masterworker.master.tasks.TaskReassignmentManager;
+import zookeeper.masterworker.master.tasks.TasksTracker;
+import zookeeper.masterworker.master.tasks.WorkersTracker;
 import org.apache.zookeeper.ZooKeeper;
 
 import java.io.IOException;

@@ -1,8 +1,8 @@
-package mastership.async.master;
+package zookeeper.masterworker.master;
 
-import mastership.async.IdGenerator;
-import mastership.async.master.tasks.TasksTracker;
-import mastership.async.master.tasks.WorkersTracker;
+import zookeeper.masterworker.IdGenerator;
+import zookeeper.masterworker.master.tasks.TasksTracker;
+import zookeeper.masterworker.master.tasks.WorkersTracker;
 import org.apache.zookeeper.*;
 import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;

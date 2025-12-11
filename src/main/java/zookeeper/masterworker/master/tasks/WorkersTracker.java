@@ -1,9 +1,10 @@
-package mastership.async.master.tasks;
+package zookeeper.masterworker.master.tasks;
 
-import mastership.async.ChildrenCache;
+import zookeeper.masterworker.ChildrenCache;
 import org.apache.zookeeper.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import zookeeper.masterworker.master.tasks.TaskReassignmentManager;
 
 import java.util.List;
 
@@ -61,7 +62,7 @@ public class WorkersTracker {
         );
     }
 
-    // Update cache and trigger task recovery for removed workers.
+    // Update cache and trigger taskName recovery for removed workers.
     private void handleWorkersUpdated(List<String> workers) {
         if (workersCache.isEmpty()) {
             workersCache = new ChildrenCache(workers);

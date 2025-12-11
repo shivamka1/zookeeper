@@ -1,6 +1,6 @@
-package mastership.async.client;
+package zookeeper.masterworker.client;
 
-import mastership.async.SessionState;
+import zookeeper.masterworker.SessionState;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.ZooDefs;
