@@ -108,31 +108,6 @@ public class TaskAssignmentManager {
                 );
     }
 
-    private final AsyncCallback.VoidCallback deleteTaskCallback = new AsyncCallback.VoidCallback() {
-        @Override
-        public void processResult(int rc, String path, Object ctx) {
-            switch (KeeperException.Code.get(rc)) {
-                case CONNECTIONLOSS -> deleteTask((String) ctx);
-                case OK -> LOG.info("Successfully deleted {}", path);
-                case NONODE -> LOG.info("Task {} already deleted", path);
-                default -> LOG.error(
-                        "Failed to delete task node {}",
-                        path,
-                        KeeperException.create(KeeperException.Code.get(rc), path)
-                );
-            }
-        }
-    };
-
-    private void deleteTask(String taskName) {
-        zk.delete(
-                "/tasks/" + taskName,
-                -1,
-                deleteTaskCallback,
-                taskName
-        );
-    }
-
     public void assignTasks(List<String> newTasks) {
         for (String task : newTasks) {
             getTaskData(task);
