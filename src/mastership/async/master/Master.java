@@ -2,7 +2,12 @@ package mastership.async.master;
 
 import mastership.async.Bootstrapper;
 import mastership.async.SessionState;
+import mastership.async.master.tasks.TaskAssignmentManager;
+import mastership.async.master.tasks.TaskReassignmentManager;
+import mastership.async.master.tasks.TasksTracker;
+import mastership.async.master.tasks.WorkersTracker;
 import org.apache.zookeeper.ZooKeeper;
+
 import java.io.IOException;
 
 public class Master {
@@ -12,7 +17,6 @@ public class Master {
     private Bootstrapper bootstrapper;
     private final SessionState sessionState = new SessionState();
     private MasterElection masterElection;
-    private WorkerManager workerManager;
 
     public Master(String connectString) {
         this.connectString = connectString;
@@ -37,8 +41,14 @@ public class Master {
     void startZk() throws IOException {
         zk = new ZooKeeper(connectString, 15000, sessionState);
         bootstrapper = new Bootstrapper(zk);
-        masterElection = new MasterElection(zk);
-        workerManager = new WorkerManager(zk);
+
+        TaskReassignmentManager taskReassignmentManager = new TaskReassignmentManager(zk);
+        WorkersTracker workersTracker = new WorkersTracker(zk, taskReassignmentManager);
+
+        TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(zk, workersTracker::getCurrentWorkers);
+        TasksTracker tasksTracker = new TasksTracker(zk, taskAssignmentManager);
+
+        masterElection = new MasterElection(zk, workersTracker, tasksTracker);
     }
 
     void stopZk() throws InterruptedException {

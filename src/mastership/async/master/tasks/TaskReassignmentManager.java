@@ -1,4 +1,4 @@
-package mastership.async.master;
+package mastership.async.master.tasks;
 
 import mastership.async.ChildrenCache;
 import org.apache.zookeeper.*;
@@ -10,70 +10,13 @@ import java.util.List;
 
 import static org.apache.zookeeper.ZooDefs.Ids.OPEN_ACL_UNSAFE;
 
-public class WorkerManager {
-    private static final Logger LOG = LoggerFactory.getLogger(WorkerManager.class);
+public class TaskReassignmentManager {
+    private static final Logger LOG = LoggerFactory.getLogger(TaskReassignmentManager.class);
 
     private final ZooKeeper zk;
-    private ChildrenCache childrenCache = new ChildrenCache();
 
-    WorkerManager(ZooKeeper zk) {
+    public TaskReassignmentManager(ZooKeeper zk) {
         this.zk = zk;
-    }
-
-    private final Watcher workersChildrenWatcher = new Watcher() {
-        @Override
-        public void process(WatchedEvent event) {
-            if (
-                    event.getType() == Event.EventType.NodeChildrenChanged &&
-                            "/workers".equals(event.getPath())
-            ) {
-                // The watch fires only once. We must call getWorkers() to re-register a new watch on /workers.
-                // Without this, we would miss future worker join/leave events.
-                getWorkers();
-            }
-        }
-    };
-
-    private final AsyncCallback.ChildrenCallback workersChildrenCallback = new AsyncCallback.ChildrenCallback() {
-        @Override
-        public void processResult(int rc, String path, Object ctx, List<String> children) {
-            switch (KeeperException.Code.get(rc)) {
-                case CONNECTIONLOSS -> getWorkers();
-                case OK -> {
-                    LOG.info("Successfully got a list of workers: {} workers", children.size());
-                    recoverTasksAndRefreshCache(children);
-                }
-                default -> LOG.error(
-                        "getChildren(/workers) failed",
-                        KeeperException.create(KeeperException.Code.get(rc), path)
-                );
-            }
-        }
-    };
-
-    private void getWorkers() {
-        zk.getChildren(
-                "/workers",
-                workersChildrenWatcher,
-                workersChildrenCallback,
-                null
-        );
-    }
-
-    private void recoverTasksAndRefreshCache(List<String> workers) {
-        if (childrenCache.isEmpty()) {
-            childrenCache = new ChildrenCache(workers);
-            return;
-        }
-
-        LOG.info("Updating worker list and checking for removed workers");
-        List<String> removedWorkers = childrenCache.getRemovedSinceLastUpdateAndRefreshCache(workers);
-
-        if (!removedWorkers.isEmpty()) {
-            for (String worker : removedWorkers) {
-                getAssignmentsForRemovedWorker(worker);
-            }
-        }
     }
 
     /*
@@ -124,15 +67,17 @@ public class WorkerManager {
         );
     }
 
-    private record RecreateTaskCtx(String path, String task, byte[] data) {
-    }
-
     private final AsyncCallback.DataCallback assignedTaskDataCallback = new AsyncCallback.DataCallback() {
         @Override
         public void processResult(int rc, String path, Object ctx, byte[] data, Stat stat) {
             switch (KeeperException.Code.get(rc)) {
                 case CONNECTIONLOSS -> getAssignedTaskData(path, (String) ctx);
-                case OK -> recreateTask(new RecreateTaskCtx(path, (String) ctx, data));
+                case OK -> reassignTask(new TaskCtx((String) ctx, data));
+                default -> LOG.error(
+                        "Error when getting assigned task data for {}",
+                        ctx,
+                        KeeperException.create(KeeperException.Code.get(rc), path)
+                );
             }
         }
     };
@@ -146,16 +91,16 @@ public class WorkerManager {
         );
     }
 
-    private final AsyncCallback.StringCallback taskRecreateCallback = new AsyncCallback.StringCallback() {
+    private final AsyncCallback.StringCallback taskReassignCallback = new AsyncCallback.StringCallback() {
         @Override
         public void processResult(int rc, String path, Object ctx, String name) {
-            RecreateTaskCtx rctx = (RecreateTaskCtx) ctx;
+            TaskCtx taskCtx = (TaskCtx) ctx;
             switch (KeeperException.Code.get(rc)) {
-                case CONNECTIONLOSS -> recreateTask(rctx);
-                case OK -> deleteAssignment(rctx.path);
+                case CONNECTIONLOSS -> reassignTask(taskCtx);
+                case OK -> deleteAssignment(path);
                 case NODEEXISTS -> {
                     LOG.info("Task node already exists, retrying recreate: {}", path);
-                    recreateTask(rctx);
+                    reassignTask(taskCtx);
                 }
                 default -> LOG.error(
                         "Error when recreating task",
@@ -165,13 +110,13 @@ public class WorkerManager {
         }
     };
 
-    private void recreateTask(RecreateTaskCtx ctx) {
+    private void reassignTask(TaskCtx ctx) {
         zk.create(
-                "/task/" + ctx.task,
-                ctx.data,
+                "/tasks/" + ctx.task(),
+                ctx.data(),
                 OPEN_ACL_UNSAFE,
                 CreateMode.PERSISTENT,
-                taskRecreateCallback,
+                taskReassignCallback,
                 ctx
         );
     }
@@ -197,5 +142,11 @@ public class WorkerManager {
     // Using -1 ensures the assignment is removed regardless of concurrent updates.
     private void deleteAssignment(String path) {
         zk.delete(path, -1, deleteAssignmentCallback, null);
+    }
+
+    public void recoverTasks(List<String> removedWorkers) {
+        for (String worker : removedWorkers) {
+            getAssignmentsForRemovedWorker(worker);
+        }
     }
 }

@@ -1,0 +1,88 @@
+package mastership.async.master.tasks;
+
+import mastership.async.ChildrenCache;
+import org.apache.zookeeper.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.List;
+
+public class WorkersTracker {
+    private static final Logger LOG = LoggerFactory.getLogger(WorkersTracker.class);
+
+    private final ZooKeeper zk;
+    private final TaskReassignmentManager taskReassignmentManager;
+
+    private ChildrenCache workersCache = new ChildrenCache();
+
+    public WorkersTracker(ZooKeeper zk, TaskReassignmentManager taskReassignmentManager) {
+        this.zk = zk;
+        this.taskReassignmentManager = taskReassignmentManager;
+    }
+
+    // Re-registers watch on /workers whenever children change.
+    private final Watcher workersChildrenWatcher = new Watcher() {
+        @Override
+        public void process(WatchedEvent event) {
+            if (
+                    event.getType() == Event.EventType.NodeChildrenChanged &&
+                            "/workers".equals(event.getPath())
+            ) {
+                // The watch fires only once. We must call getWorkers() to re-register a new watch on /workers.
+                // Without this, we would miss future worker join/leave events.
+                getWorkers();
+            }
+        }
+    };
+
+    private final AsyncCallback.ChildrenCallback workersChildrenCallback = new AsyncCallback.ChildrenCallback() {
+        @Override
+        public void processResult(int rc, String path, Object ctx, List<String> children) {
+            switch (KeeperException.Code.get(rc)) {
+                case CONNECTIONLOSS -> getWorkers();
+                case OK -> {
+                    LOG.info("Successfully got a list of workers: {} workers", children.size());
+                    handleWorkersUpdated(children);
+                }
+                default -> LOG.error(
+                        "getChildren(/workers) failed",
+                        KeeperException.create(KeeperException.Code.get(rc), path)
+                );
+            }
+        }
+    };
+
+    private void getWorkers() {
+        zk.getChildren(
+                "/workers",
+                workersChildrenWatcher,
+                workersChildrenCallback,
+                null
+        );
+    }
+
+    // Update cache and trigger task recovery for removed workers.
+    private void handleWorkersUpdated(List<String> workers) {
+        if (workersCache.isEmpty()) {
+            workersCache = new ChildrenCache(workers);
+            return;
+        }
+
+        LOG.info("Updating worker list and checking for removed workers");
+        List<String> removedWorkers = workersCache.getRemovedSinceLastUpdateAndRefreshCache(workers);
+
+        if (removedWorkers.isEmpty()) return;
+
+        LOG.info("Detected {} removed worker(s): {}", removedWorkers.size(), removedWorkers);
+        taskReassignmentManager.recoverTasks(removedWorkers);
+    }
+
+    // Returns the current cached view of workers.
+    public List<String> getCurrentWorkers() {
+        return workersCache.getList();
+    }
+
+    public void startWatchingWorkers() {
+        getWorkers();
+    }
+}

@@ -1,6 +1,8 @@
 package mastership.async.master;
 
 import mastership.async.IdGenerator;
+import mastership.async.master.tasks.TasksTracker;
+import mastership.async.master.tasks.WorkersTracker;
 import org.apache.zookeeper.*;
 import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
@@ -10,11 +12,17 @@ public class MasterElection {
     private static final Logger LOG = LoggerFactory.getLogger(MasterElection.class);
 
     private final ZooKeeper zk;
+    private final WorkersTracker workersTracker;
+    private final TasksTracker tasksTracker;
+
     private final String serverId = IdGenerator.newId();
+
     private volatile MasterState state = MasterState.RUNNING;
 
-    MasterElection(ZooKeeper zk) {
+    MasterElection(ZooKeeper zk, WorkersTracker workersTracker, TasksTracker tasksTracker) {
         this.zk = zk;
+        this.workersTracker = workersTracker;
+        this.tasksTracker = tasksTracker;
     }
 
     public MasterState getMasterState() {
@@ -73,6 +81,7 @@ public class MasterElection {
                 case OK -> {
                     if (serverId.equals(new String(data))) {
                         state = MasterState.ELECTED;
+                        takeLeadership();
                     } else {
                         state = MasterState.NOT_ELECTED;
                         masterExists();
@@ -96,7 +105,10 @@ public class MasterElection {
         public void processResult(int rc, String path, Object ctx, String name, Stat stat) {
             switch (KeeperException.Code.get(rc)) {
                 case CONNECTIONLOSS -> checkMaster();
-                case OK -> state = MasterState.ELECTED;
+                case OK -> {
+                    state = MasterState.ELECTED;
+                    takeLeadership();
+                }
                 case NODEEXISTS -> {
                     state = MasterState.NOT_ELECTED;
                     masterExists();
@@ -113,8 +125,7 @@ public class MasterElection {
         }
     };
 
-    void runForMaster() {
-        LOG.info("Running for master");
+    private void createMaster() {
         zk.create(
                 "/master",
                 serverId.getBytes(),
@@ -123,5 +134,15 @@ public class MasterElection {
                 masterCreateCallback,
                 null
         );
+    }
+
+    public void takeLeadership() {
+        workersTracker.startWatchingWorkers();
+        tasksTracker.startWatchingTasks();
+    }
+
+    public void runForMaster() {
+        LOG.info("Running for master");
+        createMaster();
     }
 }
