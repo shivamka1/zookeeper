@@ -1,8 +1,8 @@
 package zookeeper.masterworker.master;
 
 import zookeeper.masterworker.IdGenerator;
-import zookeeper.masterworker.master.tasks.TasksTracker;
-import zookeeper.masterworker.master.tasks.WorkersTracker;
+import zookeeper.masterworker.master.tasks.TasksWatcher;
+import zookeeper.masterworker.master.tasks.WorkersWatcher;
 import org.apache.zookeeper.*;
 import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
@@ -12,17 +12,17 @@ public class MasterElection {
     private static final Logger LOG = LoggerFactory.getLogger(MasterElection.class);
 
     private final ZooKeeper zk;
-    private final WorkersTracker workersTracker;
-    private final TasksTracker tasksTracker;
+    private final WorkersWatcher workersWatcher;
+    private final TasksWatcher tasksWatcher;
 
     private final String serverId = IdGenerator.newId();
 
     private volatile MasterState state = MasterState.RUNNING;
 
-    MasterElection(ZooKeeper zk, WorkersTracker workersTracker, TasksTracker tasksTracker) {
+    MasterElection(ZooKeeper zk, WorkersWatcher workersWatcher, TasksWatcher tasksWatcher) {
         this.zk = zk;
-        this.workersTracker = workersTracker;
-        this.tasksTracker = tasksTracker;
+        this.workersWatcher = workersWatcher;
+        this.tasksWatcher = tasksWatcher;
     }
 
     public MasterState getMasterState() {
@@ -137,8 +137,8 @@ public class MasterElection {
     }
 
     public void takeLeadership() {
-        workersTracker.startWatchingWorkers();
-        tasksTracker.startWatchingTasks();
+        workersWatcher.startWatchingWorkers();
+        tasksWatcher.startWatchingTasks();
     }
 
     public void runForMaster() {

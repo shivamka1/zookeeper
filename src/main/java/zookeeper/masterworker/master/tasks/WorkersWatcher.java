@@ -7,15 +7,15 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
-public class WorkersTracker {
-    private static final Logger LOG = LoggerFactory.getLogger(WorkersTracker.class);
+public class WorkersWatcher {
+    private static final Logger LOG = LoggerFactory.getLogger(WorkersWatcher.class);
 
     private final ZooKeeper zk;
     private final TaskUnassignmentManager taskUnassignmentManager;
 
     private ChildrenCache workersCache = new ChildrenCache();
 
-    public WorkersTracker(ZooKeeper zk, TaskUnassignmentManager taskUnassignmentManager) {
+    public WorkersWatcher(ZooKeeper zk, TaskUnassignmentManager taskUnassignmentManager) {
         this.zk = zk;
         this.taskUnassignmentManager = taskUnassignmentManager;
     }

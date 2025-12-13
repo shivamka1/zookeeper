@@ -7,8 +7,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
-public class TasksTracker {
-    private final static Logger LOG = LoggerFactory.getLogger(TasksTracker.class);
+public class TasksWatcher {
+    private final static Logger LOG = LoggerFactory.getLogger(TasksWatcher.class);
 
     private final ZooKeeper zk;
     private final TaskAssignmentManager taskAssignmentManager;
@@ -21,7 +21,7 @@ public class TasksTracker {
      */
     private final ChildrenCache tasksCache = new ChildrenCache();
 
-    public TasksTracker(ZooKeeper zk, TaskAssignmentManager taskAssignmentManager) {
+    public TasksWatcher(ZooKeeper zk, TaskAssignmentManager taskAssignmentManager) {
         this.zk = zk;
         this.taskAssignmentManager = taskAssignmentManager;
     }

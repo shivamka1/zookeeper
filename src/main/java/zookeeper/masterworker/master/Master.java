@@ -4,8 +4,8 @@ import zookeeper.masterworker.Bootstrapper;
 import zookeeper.masterworker.SessionState;
 import zookeeper.masterworker.master.tasks.TaskAssignmentManager;
 import zookeeper.masterworker.master.tasks.TaskUnassignmentManager;
-import zookeeper.masterworker.master.tasks.TasksTracker;
-import zookeeper.masterworker.master.tasks.WorkersTracker;
+import zookeeper.masterworker.master.tasks.TasksWatcher;
+import zookeeper.masterworker.master.tasks.WorkersWatcher;
 import org.apache.zookeeper.ZooKeeper;
 
 import java.io.IOException;
@@ -43,12 +43,12 @@ public class Master {
         bootstrapper = new Bootstrapper(zk);
 
         TaskUnassignmentManager taskUnassignmentManager = new TaskUnassignmentManager(zk);
-        WorkersTracker workersTracker = new WorkersTracker(zk, taskUnassignmentManager);
+        WorkersWatcher workersWatcher = new WorkersWatcher(zk, taskUnassignmentManager);
 
-        TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(zk, workersTracker::getCurrentWorkers);
-        TasksTracker tasksTracker = new TasksTracker(zk, taskAssignmentManager);
+        TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(zk, workersWatcher::getCurrentWorkers);
+        TasksWatcher tasksWatcher = new TasksWatcher(zk, taskAssignmentManager);
 
-        masterElection = new MasterElection(zk, workersTracker, tasksTracker);
+        masterElection = new MasterElection(zk, workersWatcher, tasksWatcher);
     }
 
     void stopZk() throws InterruptedException {
