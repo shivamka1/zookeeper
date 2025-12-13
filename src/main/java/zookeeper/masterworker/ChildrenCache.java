@@ -23,7 +23,7 @@ public class ChildrenCache {
         return children.orElseGet(ArrayList::new);
     }
 
-    public List<String> getAddedSinceLastUpdateAndRefreshCache(List<String> newChildren) {
+    public List<String> refreshCacheAndGetAddedWorkersSinceLastUpdate(List<String> newChildren) {
         ArrayList<String> diff = new ArrayList<>();
 
         if (children.isEmpty()) {
@@ -41,7 +41,7 @@ public class ChildrenCache {
         return diff;
     }
 
-    public List<String> getRemovedSinceLastUpdateAndRefreshCache(List<String> newChildren) {
+    public List<String> refreshCacheAndGetRemovedWorkersSinceLastUpdate(List<String> newChildren) {
         ArrayList<String> diff = new ArrayList<>();
 
         if (children.isPresent()) {

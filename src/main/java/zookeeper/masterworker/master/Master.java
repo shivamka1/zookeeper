@@ -3,7 +3,7 @@ package zookeeper.masterworker.master;
 import zookeeper.masterworker.Bootstrapper;
 import zookeeper.masterworker.SessionState;
 import zookeeper.masterworker.master.tasks.TaskAssignmentManager;
-import zookeeper.masterworker.master.tasks.TaskReassignmentManager;
+import zookeeper.masterworker.master.tasks.TaskUnassignmentManager;
 import zookeeper.masterworker.master.tasks.TasksTracker;
 import zookeeper.masterworker.master.tasks.WorkersTracker;
 import org.apache.zookeeper.ZooKeeper;
@@ -42,8 +42,8 @@ public class Master {
         zk = new ZooKeeper(connectString, 15000, sessionState);
         bootstrapper = new Bootstrapper(zk);
 
-        TaskReassignmentManager taskReassignmentManager = new TaskReassignmentManager(zk);
-        WorkersTracker workersTracker = new WorkersTracker(zk, taskReassignmentManager);
+        TaskUnassignmentManager taskUnassignmentManager = new TaskUnassignmentManager(zk);
+        WorkersTracker workersTracker = new WorkersTracker(zk, taskUnassignmentManager);
 
         TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(zk, workersTracker::getCurrentWorkers);
         TasksTracker tasksTracker = new TasksTracker(zk, taskAssignmentManager);

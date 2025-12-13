@@ -8,12 +8,12 @@ import org.slf4j.LoggerFactory;
 import java.util.Arrays;
 import java.util.List;
 
-public class TaskReassignmentManager {
-    private static final Logger LOG = LoggerFactory.getLogger(TaskReassignmentManager.class);
+public class TaskUnassignmentManager {
+    private static final Logger LOG = LoggerFactory.getLogger(TaskUnassignmentManager.class);
 
     private final ZooKeeper zk;
 
-    public TaskReassignmentManager(ZooKeeper zk) {
+    public TaskUnassignmentManager(ZooKeeper zk) {
         this.zk = zk;
     }
 
@@ -42,7 +42,7 @@ public class TaskReassignmentManager {
             switch (KeeperException.Code.get(rc)) {
                 case CONNECTIONLOSS -> getAssignmentsForRemovedWorker(worker);
                 case OK -> {
-                    LOG.info("Successfully got a list of assigments: {} tasks", children.size());
+                    LOG.info("Successfully got a list of assignments: {} tasks", children.size());
                     for (String task : children) {
                         getAssignedTaskData(path + "/" + task, task);
                     }
@@ -70,7 +70,7 @@ public class TaskReassignmentManager {
         public void processResult(int rc, String path, Object ctx, byte[] data, Stat stat) {
             switch (KeeperException.Code.get(rc)) {
                 case CONNECTIONLOSS -> getAssignedTaskData(path, (String) ctx);
-                case OK -> reassignTask(new TaskCtx(path, (String) ctx, data));
+                case OK -> unassignTask(new TaskCtx(path, (String) ctx, data));
                 default -> LOG.error(
                         "Error when getting assigned task data for {}",
                         ctx,
@@ -89,12 +89,12 @@ public class TaskReassignmentManager {
         );
     }
 
-    private final AsyncCallback.MultiCallback taskReassignMultiCallback = new AsyncCallback.MultiCallback() {
+    private final AsyncCallback.MultiCallback taskUnassignMultiCallback = new AsyncCallback.MultiCallback() {
         @Override
         public void processResult(int rc, String path, Object ctx, List<OpResult> opResults) {
             TaskCtx taskCtx = (TaskCtx) ctx;
             switch (KeeperException.Code.get(rc)) {
-                case CONNECTIONLOSS -> reassignTask(taskCtx);
+                case CONNECTIONLOSS -> unassignTask(taskCtx);
                 case OK -> LOG.info(
                         "Reassigned task {} from {} back to /tasks/{}",
                         taskCtx.taskName(),
@@ -109,7 +109,7 @@ public class TaskReassignmentManager {
         }
     };
 
-    private void reassignTask(TaskCtx ctx) {
+    private void unassignTask(TaskCtx ctx) {
         String newTaskPath = "/tasks/" + ctx.taskName();
 
         Op createTaskUnderNewTaskPath = Op.create(
@@ -130,7 +130,7 @@ public class TaskReassignmentManager {
                 deleteTaskFromAssignmentPath
         );
 
-        zk.multi(ops, taskReassignMultiCallback, ctx);
+        zk.multi(ops, taskUnassignMultiCallback, ctx);
     }
 
     public void recoverTasks(List<String> removedWorkers) {

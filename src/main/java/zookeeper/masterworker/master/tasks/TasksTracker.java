@@ -60,7 +60,7 @@ public class TasksTracker {
     // Update cache and trigger taskName assignment to next available worker.
     private void handleTasksUpdated(List<String> tasks) {
         LOG.info("Updating tasks list and checking for new tasks");
-        List<String> newTasks = tasksCache.getAddedSinceLastUpdateAndRefreshCache(tasks);
+        List<String> newTasks = tasksCache.refreshCacheAndGetAddedWorkersSinceLastUpdate(tasks);
 
         if (newTasks.isEmpty()) return;
 

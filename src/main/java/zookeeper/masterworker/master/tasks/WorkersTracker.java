@@ -4,7 +4,6 @@ import zookeeper.masterworker.ChildrenCache;
 import org.apache.zookeeper.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import zookeeper.masterworker.master.tasks.TaskReassignmentManager;
 
 import java.util.List;
 
@@ -12,13 +11,13 @@ public class WorkersTracker {
     private static final Logger LOG = LoggerFactory.getLogger(WorkersTracker.class);
 
     private final ZooKeeper zk;
-    private final TaskReassignmentManager taskReassignmentManager;
+    private final TaskUnassignmentManager taskUnassignmentManager;
 
     private ChildrenCache workersCache = new ChildrenCache();
 
-    public WorkersTracker(ZooKeeper zk, TaskReassignmentManager taskReassignmentManager) {
+    public WorkersTracker(ZooKeeper zk, TaskUnassignmentManager taskUnassignmentManager) {
         this.zk = zk;
-        this.taskReassignmentManager = taskReassignmentManager;
+        this.taskUnassignmentManager = taskUnassignmentManager;
     }
 
     // Re-registers watch on /workers whenever children change.
@@ -70,12 +69,12 @@ public class WorkersTracker {
         }
 
         LOG.info("Updating worker list and checking for removed workers");
-        List<String> removedWorkers = workersCache.getRemovedSinceLastUpdateAndRefreshCache(workers);
+        List<String> removedWorkers = workersCache.refreshCacheAndGetRemovedWorkersSinceLastUpdate(workers);
 
         if (removedWorkers.isEmpty()) return;
 
         LOG.info("Detected {} removed worker(s): {}", removedWorkers.size(), removedWorkers);
-        taskReassignmentManager.recoverTasks(removedWorkers);
+        taskUnassignmentManager.recoverTasks(removedWorkers);
     }
 
     // Returns the current cached view of workers.
