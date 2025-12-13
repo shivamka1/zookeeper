@@ -27,7 +27,7 @@ public class ClientSimple {
     }
 
     void stopZk() throws InterruptedException {
-        zk.close();
+        if (zk != null) zk.close();
     }
 
     boolean isConnected() {

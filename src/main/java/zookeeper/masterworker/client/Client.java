@@ -1,9 +1,6 @@
 package zookeeper.masterworker.client;
 
 import zookeeper.masterworker.SessionState;
-import org.apache.zookeeper.CreateMode;
-import org.apache.zookeeper.KeeperException;
-import org.apache.zookeeper.ZooDefs;
 import org.apache.zookeeper.ZooKeeper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,7 +12,10 @@ public class Client {
 
     private ZooKeeper zk;
     private final String connectString;
+
     private final SessionState sessionState;
+    private SubmitTask submitTask;
+    private StatusWatcher statusWatcher;
 
     Client(String connectString) {
         this.connectString = connectString;
@@ -24,11 +24,12 @@ public class Client {
 
     void startZk() throws IOException {
         zk = new ZooKeeper(connectString, 15000, sessionState);
-
+        statusWatcher = new StatusWatcher(zk);
+        submitTask = new SubmitTask(zk, statusWatcher);
     }
 
     void stopZk() throws InterruptedException {
-        zk.close();
+        if (zk != null) zk.close();
     }
 
     boolean isConnected() {
@@ -37,25 +38,6 @@ public class Client {
 
     boolean isExpired() {
         return sessionState.isExpired();
-    }
-
-    String queueCommand(String command) throws Exception {
-        while (true) {
-            String name = null;
-            try {
-                name = zk.create(
-                        "/task/task-",
-                        command.getBytes(),
-                        ZooDefs.Ids.OPEN_ACL_UNSAFE,
-                        CreateMode.PERSISTENT_SEQUENTIAL
-                );
-                return name;
-            } catch (KeeperException.NodeExistsException e) {
-                throw new Exception(name + " already appears to be running");
-            } catch (KeeperException.ConnectionLossException e) {
-
-            }
-        }
     }
 
     static void main(String[] args) throws Exception {
@@ -67,8 +49,22 @@ public class Client {
             Thread.sleep(100);
         }
 
-        String name = client.queueCommand(args[1]);
-        System.out.println("Created " + name);
+        Task task1 = client.submitTask.submit("Sample task 1")
+                .exceptionally(e -> {
+                    throw new RuntimeException("Failed to submit task", e);
+                })
+                .join();
+        Task task2 = client.submitTask.submit("Sample task 2")
+                .exceptionally(e -> {
+                    throw new RuntimeException("Failed to submit task", e);
+                })
+                .join();
+
+        task1.await();
+        task2.await();
+
+        LOG.info("Task {} with payload {} finished with result = {}", task1.getTaskName(), task1.getTaskData(), task1.getStatus());
+        LOG.info("Task {} with payload {} finished with result = {}", task2.getTaskName(), task2.getTaskData(), task2.getStatus());
 
         while (!client.isExpired()) {
             Thread.sleep(1000);

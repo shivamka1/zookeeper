@@ -20,7 +20,7 @@ public class MasterSimple implements Watcher {
     }
 
     void stopZk() throws InterruptedException {
-        zk.close();
+        if (zk != null) zk.close();
     }
 
     @Override

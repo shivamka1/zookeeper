@@ -25,7 +25,7 @@ public class MasterSync implements Watcher {
     }
 
     void stopZk() throws InterruptedException {
-        zk.close();
+        if (zk != null) zk.close();
     }
 
     void runForMaster() throws InterruptedException, KeeperException {

@@ -52,7 +52,7 @@ public class Master {
     }
 
     void stopZk() throws InterruptedException {
-        zk.close();
+        if (zk != null) zk.close();
     }
 
     void bootstrap() {
