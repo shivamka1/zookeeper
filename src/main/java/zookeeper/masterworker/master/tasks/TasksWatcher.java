@@ -14,10 +14,20 @@ public class TasksWatcher {
     private final TaskAssignmentManager taskAssignmentManager;
 
     /**
-     * Why do we need tasksCache? Without tasksCache every time any change happens under /tasks:
-     * • We’d re-run assignTasks() on the entire /tasks list.
-     * • Tasks that are still pending but already in the process of being assigned could get churned repeatedly.
-     * • You’d need extra logic inside assignTasks to dedupe or idempotently handle tasks.
+     * Explains why a {@link ChildrenCache} is used for tracking tasks.
+     *
+     * <p>Without a cache, every watcher notification under {@code /tasks} would
+     * require re-running {@code assignTasks()} on the full list of tasks.</p>
+     *
+     * <p>This leads to several problems:
+     * <ul>
+     *   <li>All tasks would be reprocessed on every change, even if most are unchanged</li>
+     *   <li>Tasks that are already in the process of being assigned could be churned repeatedly</li>
+     *   <li>{@code assignTasks()} would need additional deduplication or idempotency logic</li>
+     * </ul>
+     *
+     * <p>Using {@link ChildrenCache} allows the master to react only to newly added
+     * or removed tasks, keeping task assignment stable and incremental.</p>
      */
     private final ChildrenCache tasksCache = new ChildrenCache();
 

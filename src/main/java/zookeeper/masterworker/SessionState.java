@@ -11,16 +11,22 @@ public class SessionState implements Watcher {
     private static final Logger LOG = LoggerFactory.getLogger(SessionState.class);
 
     /**
-     * connected and expired are volatile because they are:
-     * • Written from the ZooKeeper event thread (inside process(WatchedEvent e)), and
-     * • Read from the main thread (inside isConnected(), isExpired(), and the loops in main).
-     * <p>
-     * If connected and expired were plain booleans:
-     * • The main thread might keep seeing the old value cached in a register or CPU cache.
-     * • It might spin forever in the while (!m.isConnected()) loop even though the event thread has already set connected = true.
-     * • You would get weird “hangs” that only appear under some timings or JVM optimisations.
-     * <p>
-     * This is a classic visibility problem in Java’s memory model.
+     * {@code connected} and {@code expired} are {@code volatile} because they are:
+     * <ul>
+     *   <li>Written from the ZooKeeper event thread (inside {@code process(WatchedEvent e)})</li>
+     *   <li>Read from the main thread (inside {@code isConnected()}, {@code isExpired()},
+     *       and the loops in {@code main})</li>
+     * </ul>
+     *
+     * <p>If connected and expired were plain booleans:</p>
+     * <ul>
+     *   <li>The main thread might keep seeing the old value cached in a register or CPU cache</li>
+     *   <li>It might spin forever in the {@code while (!m.isConnected())} loop even though
+     *       the event thread has already set {@code connected = true}</li>
+     *   <li>You would get weird “hangs” that only appear under some timings or JVM optimisations</li>
+     * </ul>
+     *
+     * <p>This is a classic visibility problem in Java’s memory model.</p>
      */
     private volatile boolean connected;
     private volatile boolean expired;

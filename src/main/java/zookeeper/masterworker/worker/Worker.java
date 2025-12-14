@@ -6,15 +6,25 @@ import zookeeper.masterworker.SessionState;
 import org.apache.zookeeper.ZooKeeper;
 
 import java.io.IOException;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 public class Worker {
     private ZooKeeper zk;
     private final String connectString;
     private final String serverId = IdGenerator.newId();
+    private final String workerName = "worker-" + serverId;
 
     private final SessionState sessionState = new SessionState();
     private Bootstrapper bootstrapper;
+
     private RegisterWorker registerWorker;
+    private StatusUpdate statusUpdate;
+
+    private ThreadPoolExecutor executor;
+    private TaskExecutor taskExecutor;
+    private TaskWatcher taskWatcher;
 
     Worker(String connectString) {
         this.connectString = connectString;
@@ -31,13 +41,41 @@ public class Worker {
     void startZk() throws IOException {
         zk = new ZooKeeper(this.connectString, 15000, sessionState);
         bootstrapper = new Bootstrapper(zk);
-        registerWorker = new RegisterWorker(serverId, zk);
+        registerWorker = new RegisterWorker(workerName, zk);
+        statusUpdate = new StatusUpdate(workerName, zk);
+
+        executor = new ThreadPoolExecutor(
+                1, 1, 1000L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(200)
+        );
+        taskExecutor = new TaskExecutor(zk, workerName, statusUpdate, executor);
+        taskWatcher = new TaskWatcher(zk, workerName, taskExecutor);
     }
 
     void stopZk() throws InterruptedException {
         if (zk != null) zk.close();
     }
 
+    /**
+     * Worker registration ordering matters.
+     *
+     * <p>Each worker creates:</p>
+     * <ol>
+     *   <li>{@code /assign/<worker-id>} — parent for task assignments</li>
+     *   <li>{@code /workers/<worker-id>} — signals presence to the master</li>
+     * </ol>
+     *
+     * <p>We MUST create {@code /assign/<worker-id>} first.</p>
+     *
+     * <p>If {@code /workers/<worker-id>} were created before
+     * {@code /assign/<worker-id>}, the master could observe the worker and attempt
+     * to assign a task before the assignment parent exists, causing the assignment
+     * to fail.</p>
+     *
+     * <p>After creating {@code /assign/<worker-id>}, the worker sets a watch on it
+     * to be notified when the master assigns new tasks.</p>
+     */
     void bootstrap() {
         bootstrapper.createPersistent("/assign/worker-" + serverId);
     }

@@ -6,15 +6,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Represents a single task submitted to the master–worker system.
  *
- * This class is intentionally thread-safe because:
- *  - ZooKeeper callbacks may retry on CONNECTIONLOSS
- *  - Watchers may fire more than once
- *  - Multiple callback paths may attempt to complete the same task
+ * <p>This class is intentionally thread-safe because:</p>
+ * <ul>
+ *   <li>ZooKeeper callbacks may retry on {@code CONNECTIONLOSS}</li>
+ *   <li>Watchers may fire more than once</li>
+ *   <li>Multiple callback paths may attempt to complete the same task</li>
+ * </ul>
  *
- * The goal is:
- *  - Allow multiple threads to *wait* for completion
- *  - Ensure the task is *completed exactly once*
- *  - Make completion visible to all waiting threads
+ * <p>The goal is:</p>
+ * <ul>
+ *   <li>Allow multiple threads to <em>wait</em> for completion</li>
+ *   <li>Ensure the task is <em>completed exactly once</em></li>
+ *   <li>Make completion visible to all waiting threads</li>
+ * </ul>
  */
 public class Task {
     private final String taskName;
@@ -23,91 +27,116 @@ public class Task {
     /**
      * Ensures that completion happens at most once.
      *
-     * Why AtomicBoolean?
-     * -------------------
-     * ZooKeeper callbacks can be retried and re-entered:
-     *  - A status watcher may fire
-     *  - A reconnection retry may re-read the same status
+     * <p>Why {@link AtomicBoolean}?</p>
      *
-     * Without this guard, multiple threads could attempt to complete
-     * the task and race to update its final state.
+     * <p>ZooKeeper callbacks can be retried and re-entered:</p>
+     * <ul>
+     *   <li>A status watcher may fire</li>
+     *   <li>A reconnection retry may re-read the same status</li>
+     * </ul>
      *
-     * compareAndSet(false, true) guarantees:
-     *  - Only the *first* caller wins
-     *  - All subsequent calls become no-ops
+     * <p>Without this guard, multiple threads could attempt to complete
+     * the task and race to update its final state.</p>
      *
-     * This gives us idempotent completion.
+     * <p>{@code compareAndSet(false, true)} guarantees:</p>
+     * <ul>
+     *   <li>Only the <em>first</em> caller wins</li>
+     *   <li>All subsequent calls become no-ops</li>
+     * </ul>
+     *
+     * <p>This gives us idempotent completion.</p>
      */
     private final AtomicBoolean completed = new AtomicBoolean(false);
 
     /**
      * Final task outcome.
      *
-     * Visibility and concurrency guarantees:
-     * --------------------------------------
+     * <p>Visibility and concurrency guarantees:</p>
      *
-     * This field is read by multiple threads:
-     *  - ZooKeeper callback threads (writers)
-     *  - Client / application threads (readers)
+     * <p>This field is read by multiple threads:</p>
+     * <ul>
+     *   <li>ZooKeeper callback threads (writers)</li>
+     *   <li>Client / application threads (readers)</li>
+     * </ul>
      *
-     * It is marked volatile to support *non-blocking* readers that may
-     * observe task completion without calling await().
+     * <p>It is marked {@code volatile} to support <em>non-blocking</em> readers that may
+     * observe task completion without calling {@code await()}.</p>
      *
-     * Two supported usage patterns:
-     * ------------------------------
+     * <p>Two supported usage patterns:</p>
      *
-     * 1) Blocking usage (most common):
+     * <ol>
+     *   <li>
+     *     Blocking usage (most common):
      *
-     *     task.await();
+     *     <pre>{@code
+     * task.await();
+     * handle(task.getStatus());
+     *     }</pre>
+     *
+     *     <p>In this case:</p>
+     *     <ul>
+     *       <li>{@code complete()} sets the final status and then calls {@code latch.countDown()}</li>
+     *       <li>{@code CountDownLatch} establishes a happens-before relationship:
+     *           all writes before {@code countDown()} are visible after {@code await()} returns</li>
+     *       <li>Once {@code await()} returns, {@code getStatus()} is guaranteed to see
+     *           the final value ({@code SUCCESS} or {@code FAILURE})</li>
+     *     </ul>
+     *   </li>
+     *
+     *   <li>
+     *     Non-blocking / polling usage:
+     *
+     *     <pre>{@code
+     * if (task.isDone()) {
      *     handle(task.getStatus());
+     * }
+     *     }</pre>
      *
-     * In this case:
-     *  - complete() sets the final status and then calls latch.countDown().
-     *  - CountDownLatch establishes a happens-before relationship:
-     *      all writes before countDown() are visible after await() returns.
-     *  - Once await() returns, getStatus() is guaranteed to see the final value
-     *    (SUCCESS or FAILURE).
+     *     <p>In this case:</p>
+     *     <ul>
+     *       <li>The caller does <em>not</em> block on {@code await()}</li>
+     *       <li>Visibility relies entirely on {@code status} being {@code volatile}</li>
+     *       <li>{@code volatile} guarantees that writes in {@code complete()} are
+     *           immediately visible and readers will never see a stale {@code PENDING} value</li>
+     *     </ul>
+     *   </li>
+     * </ol>
      *
-     * 2) Non-blocking / polling usage:
+     * <p>Why {@code volatile} is still required:</p>
      *
-     *     if (task.isDone()) {
-     *         handle(task.getStatus());
-     *     }
+     * <p>Even though {@code await()} provides visibility for blocking callers,
+     * other threads may legally read {@code status} without ever calling {@code await()}.</p>
      *
-     * In this case:
-     *  - The caller does NOT block on await().
-     *  - Visibility relies entirely on 'status' being volatile.
-     *  - volatile guarantees that writes in complete() are immediately visible
-     *    and readers will never see a stale PENDING value.
+     * <p>Marking {@code status} as {@code volatile} ensures:</p>
+     * <ul>
+     *   <li>Both blocking and non-blocking access patterns are safe</li>
+     *   <li>No thread can observe stale state after completion</li>
+     * </ul>
      *
-     * Why volatile is still required:
-     * -------------------------------
-     * Even though await() provides visibility for blocking callers,
-     * other threads may legally read status without ever calling await().
+     * <p>State transition:</p>
      *
-     * Marking status as volatile ensures:
-     *  - Both blocking and non-blocking access patterns are safe
-     *  - No thread can observe stale state after completion
-     *
-     * State transition:
-     * -----------------
-     *   PENDING → SUCCESS | FAILURE
+     * <pre>{@code
+     * PENDING → SUCCESS | FAILURE
+     * }</pre>
      */
     private volatile TaskStatus status = TaskStatus.PENDING;
 
     /**
      * Used to block callers until the task completes.
      *
-     * Why CountDownLatch?
-     * -------------------
-     *  - Any number of threads can call await()
-     *  - All threads are released when count reaches zero
-     *  - Exactly matches the "wait until task is done" semantics
+     * <p>Why {@link CountDownLatch}?</p>
+     * <ul>
+     *   <li>Any number of threads can call {@code await()}</li>
+     *   <li>All threads are released when the count reaches zero</li>
+     *   <li>Exactly matches the "wait until task is done" semantics</li>
+     * </ul>
      *
-     * Unlike wait/notify:
-     *  - No risk of missed notifications
-     *  - No need for synchronized blocks
-     *  - Much easier to reason about
+     * <p>Unlike {@code wait}/{@code notify}:</p>
+     * <ul>
+     *   <li>No risk of missed notifications</li>
+     *   <li>No need for synchronized blocks</li>
+     *   <li>Much easier to reason about</li>
+     * </ul>
      */
     private final CountDownLatch latch = new CountDownLatch(1);
 
@@ -125,9 +154,9 @@ public class Task {
     }
 
     /**
-     * Returns true once the task has reached a terminal state.
+     * Returns {@code true} once the task has reached a terminal state.
      *
-     * This method is non-blocking and safe to call from any thread.
+     * <p>This method is non-blocking and safe to call from any thread.</p>
      */
     public boolean isDone() {
         return status != TaskStatus.PENDING;
@@ -136,7 +165,7 @@ public class Task {
     /**
      * Returns the current task status.
      *
-     * If called before completion, this will return PENDING.
+     * <p>If called before completion, this will return {@code PENDING}.</p>
      */
     public TaskStatus getStatus() {
         return status;
@@ -145,16 +174,20 @@ public class Task {
     /**
      * Marks the task as completed.
      *
-     * This method is:
-     *  - Thread-safe
-     *  - Idempotent
-     *  - Safe under ZooKeeper retries and reconnections
+     * <p>This method is:</p>
+     * <ul>
+     *   <li>Thread-safe</li>
+     *   <li>Idempotent</li>
+     *   <li>Safe under ZooKeeper retries and reconnections</li>
+     * </ul>
      *
-     * Only the first caller is allowed to:
-     *  - Set the final status
-     *  - Release waiting threads
+     * <p>Only the first caller is allowed to:</p>
+     * <ul>
+     *   <li>Set the final status</li>
+     *   <li>Release waiting threads</li>
+     * </ul>
      *
-     * All subsequent calls return immediately.
+     * <p>All subsequent calls return immediately.</p>
      */
     public void complete(boolean success) {
         // Ensure only one thread performs completion logic
@@ -166,12 +199,16 @@ public class Task {
     /**
      * Blocks the calling thread until the task completes.
      *
-     * Happens-before guarantee:
-     *  - Once await() returns, the final status is visible
+     * <p>Happens-before guarantee:</p>
+     * <ul>
+     *   <li>Once {@code await()} returns, the final status is visible</li>
+     * </ul>
      *
-     * Typical usage:
-     *   task.await();
-     *   switch (task.getStatus()) { ... }
+     * <p>Typical usage:</p>
+     * <pre>{@code
+     * task.await();
+     * switch (task.getStatus()) { ... }
+     * }</pre>
      */
     public void await() throws InterruptedException {
         latch.await();

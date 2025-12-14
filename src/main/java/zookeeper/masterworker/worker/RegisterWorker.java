@@ -10,8 +10,8 @@ public class RegisterWorker {
     private final ZooKeeper zk;
     private final String workerName;
 
-    RegisterWorker(String serverId, ZooKeeper zk) {
-        this.workerName = "worker-" + serverId;
+    RegisterWorker(String workerName, ZooKeeper zk) {
+        this.workerName = workerName;
         this.zk =zk;
     }
 

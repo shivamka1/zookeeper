@@ -18,64 +18,92 @@ import static org.apache.zookeeper.ZooDefs.Ids.OPEN_ACL_UNSAFE;
 /**
  * IdempotentTaskAssignmentManager
  *
- * This manager assigns tasks using a simple three-step pattern:
+ * <p>This manager assigns tasks using a simple three-step pattern:</p>
  *
- *   1) read /tasks/<task> to get the task data
- *   2) create /assign/<worker>/<task> with that data
- *   3) delete /tasks/<task>
+ * <ol>
+ *   <li>Read {@code /tasks/<task>} to get the task data</li>
+ *   <li>Create {@code /assign/<worker>/<task>} with that data</li>
+ *   <li>Delete {@code /tasks/<task>}</li>
+ * </ol>
  *
- * These steps are issued as separate ZooKeeper operations, so they are
+ * <p>These steps are issued as separate ZooKeeper operations, so they are
  * not atomic. This makes the design intentionally at-least-once rather
  * than exactly-once. The key point is that tasks are assumed to be
- * idempotent: executing the same task more than once must be safe.
+ * idempotent: executing the same task more than once must be safe.</p>
  *
- * There are two interesting failure scenarios:
+ * <p>There are two interesting failure scenarios:</p>
  *
- *   1) Connection loss around the create:
- *      - The create("/assign/...") may actually succeed on the server,
- *        but the client loses the connection before seeing the reply.
- *      - On retry, create() returns NODEEXISTS for the assignment znode.
- *      - In that case we log and still delete /tasks/<task>, completing
- *        the assignment as if the first create had succeeded.
+ * <ol>
+ *   <li>
+ *     Connection loss around the create:
+ *     <ul>
+ *       <li>The {@code create("/assign/...")} may actually succeed on the server,
+ *           but the client loses the connection before seeing the reply.</li>
+ *       <li>On retry, {@code create()} returns {@code NODEEXISTS} for the assignment znode.</li>
+ *       <li>In that case we log and still delete {@code /tasks/<task>},
+ *           completing the assignment as if the first create had succeeded.</li>
+ *     </ul>
+ *   </li>
  *
- *   2) Crash after create, before delete:
- *      - The manager successfully creates /assign/<worker>/<task>.
- *      - Before delete("/tasks/<task>") runs or completes, the process
- *        crashes, restarts, or loses its ZooKeeper session.
- *      - A new master later scans /tasks, still sees <task>, and assigns
- *        it again, potentially to a different worker.
- *      - As a result, the same logical task can be executed more than once.
+ *   <li>
+ *     Crash after create, before delete:
+ *     <ul>
+ *       <li>The manager successfully creates {@code /assign/<worker>/<task>}.</li>
+ *       <li>Before {@code delete("/tasks/<task>")} runs or completes, the process
+ *           crashes, restarts, or loses its ZooKeeper session.</li>
+ *       <li>A new master later scans {@code /tasks}, still sees {@code <task>},
+ *           and assigns it again, potentially to a different worker.</li>
+ *       <li>As a result, the same logical task can be executed more than once.</li>
+ *     </ul>
+ *   </li>
+ * </ol>
  *
- * This class deliberately accepts scenario (2) and relies on
+ * <p>This class deliberately accepts scenario (2) and relies on
  * idempotent task processing. In other words, it implements the
- * following design choice:
+ * following design choice:</p>
  *
- *   1. Treat tasks as idempotent and allow at-least-once semantics:
- *        - Document that tasks may be retried or executed multiple times.
- *        - Ensure workers handle duplicates safely (for example, by
- *          deduplicating on a task identifier or making side effects
- *          naturally idempotent).
+ * <ol>
+ *   <li>
+ *     Treat tasks as idempotent and allow at-least-once semantics:
+ *     <ul>
+ *       <li>Document that tasks may be retried or executed multiple times.</li>
+ *       <li>Ensure workers handle duplicates safely (for example, by
+ *           deduplicating on a task identifier or making side effects
+ *           naturally idempotent).</li>
+ *     </ul>
+ *   </li>
+ * </ol>
  *
- * For completeness, there are two other conceptual options which this
- * implementation does not take:
+ * <p>For completeness, there are two other conceptual options which this
+ * implementation does not take:</p>
  *
- *   2. Use ZooKeeper multi() or Transaction:
- *        - Bundle “create /assign/<worker>/<task>” and
- *          “delete /tasks/<task>” into one atomic operation.
- *        - Either both succeed or neither does, which closes the window
- *          where a task is both in /assign and still visible in /tasks.
+ * <ol>
+ *   <li>
+ *     Use ZooKeeper {@code multi()} or Transaction:
+ *     <ul>
+ *       <li>Bundle {@code create /assign/<worker>/<task>} and
+ *           {@code delete /tasks/<task>} into one atomic operation.</li>
+ *       <li>Either both succeed or neither does, which closes the window
+ *           where a task is both in {@code /assign} and still visible in {@code /tasks}.</li>
+ *     </ul>
+ *   </li>
  *
- *   3. Add extra coordination or metadata:
- *        - For example, maintain a separate flag or znode that records
- *          which worker a task has been assigned to, and have new masters
- *          reconcile based on that state.
- *        - This reduces duplicate execution but is essentially a more
- *          complex way of achieving what an atomic multi() would provide.
+ *   <li>
+ *     Add extra coordination or metadata:
+ *     <ul>
+ *       <li>For example, maintain a separate flag or znode that records
+ *           which worker a task has been assigned to, and have new masters
+ *           reconcile based on that state.</li>
+ *       <li>This reduces duplicate execution but is essentially a more
+ *           complex way of achieving what an atomic {@code multi()} would provide.</li>
+ *     </ul>
+ *   </li>
+ * </ol>
  *
- * If you need strict exactly-once assignment, you should not use this
+ * <p>If you need strict exactly-once assignment, you should not use this
  * idempotent variant and should instead adopt a multi-based approach
  * such as the one used in the task reassignment path
- * (see TaskReassignmentManager).
+ * (see {@link zookeeper.masterworker.master.tasks.TaskUnassignmentManager}).</p>
  */
 public class IdempotentTaskAssignmentManager {
     private static final Logger LOG = LoggerFactory.getLogger(IdempotentTaskAssignmentManager.class);

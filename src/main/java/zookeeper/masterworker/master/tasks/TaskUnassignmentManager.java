@@ -17,23 +17,25 @@ public class TaskUnassignmentManager {
         this.zk = zk;
     }
 
-    /*
-     * When a worker dies, its tasks live under:
-     *     /assign/<worker>/<task>
+    /**
+     * When a worker dies, its tasks live under: {@code /assign/<worker>/<task>}
      *
-     * We must recover these tasks.
+     * <p>We must recover these tasks.</p>
      *
-     * We DO NOT assign them directly to another worker here.
-     * Instead:
+     * <p>We DO NOT assign them directly to another worker here.</p>
      *
-     *     1. Fetch the task data from /assign/<worker>/<task>.
-     *     2. Recreate the task under /tasks/<task>.
-     *     3. Delete the stale assignment.
+     * <p>Instead:</p>
      *
-     * This ensures the Master detects the task under /tasks (via its watcher)
-     * and performs assignment the normal way.
+     * <ol>
+     *   <li>Fetch the task data from {@code /assign/<worker>/<task>}</li>
+     *   <li>Recreate the task under {@code /tasks/<task>}</li>
+     *   <li>Delete the stale assignment</li>
+     * </ol>
      *
-     * This keeps assignment logic centralized and avoids distributed race conditions.
+     * <p>This ensures the Master detects the task under {@code /tasks} (via its watcher)
+     * and performs assignment the normal way.</p>
+     *
+     * <p>This keeps assignment logic centralized and avoids distributed race conditions.</p>
      */
     private final AsyncCallback.ChildrenCallback removedWorkerAssignmentsCallback = new AsyncCallback.ChildrenCallback() {
         @Override

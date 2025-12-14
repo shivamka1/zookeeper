@@ -16,8 +16,8 @@ public class StatusUpdate {
     private final String workerName;
     private String status;
 
-    StatusUpdate(String serverId, ZooKeeper zk) {
-        this.workerName = "worker-" + serverId;
+    StatusUpdate(String workerName, ZooKeeper zk) {
+        this.workerName = workerName;
         this.zk = zk;
     }
 
