@@ -15,7 +15,6 @@ public class Client {
 
     private final SessionState sessionState;
     private TaskPublisher taskPublisher;
-    private StatusWatcher statusWatcher;
 
     Client(String connectString) {
         this.connectString = connectString;
@@ -24,7 +23,7 @@ public class Client {
 
     void startZk() throws IOException {
         zk = new ZooKeeper(connectString, 15000, sessionState);
-        statusWatcher = new StatusWatcher(zk);
+        StatusWatcher statusWatcher = new StatusWatcher(zk);
         taskPublisher = new TaskPublisher(zk, statusWatcher);
     }
 

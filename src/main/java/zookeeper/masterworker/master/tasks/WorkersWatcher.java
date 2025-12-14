@@ -21,36 +21,31 @@ public class WorkersWatcher {
     }
 
     // Re-registers watch on /workers whenever children change.
-    private final Watcher workersChildrenWatcher = new Watcher() {
-        @Override
-        public void process(WatchedEvent event) {
-            if (
-                    event.getType() == Event.EventType.NodeChildrenChanged &&
-                            "/workers".equals(event.getPath())
-            ) {
-                // The watch fires only once. We must call getWorkers() to re-register a new watch on /workers.
-                // Without this, we would miss future worker join/leave events.
-                getWorkers();
-            }
+    private final Watcher workersChildrenWatcher = event -> {
+        if (
+                event.getType() == Watcher.Event.EventType.NodeChildrenChanged &&
+                        "/workers".equals(event.getPath())
+        ) {
+            // The watch fires only once. We must call getWorkers() to re-register a new watch on /workers.
+            // Without this, we would miss future worker join/leave events.
+            getWorkers();
         }
     };
 
-    private final AsyncCallback.ChildrenCallback workersChildrenCallback = new AsyncCallback.ChildrenCallback() {
-        @Override
-        public void processResult(int rc, String path, Object ctx, List<String> children) {
-            switch (KeeperException.Code.get(rc)) {
-                case CONNECTIONLOSS -> getWorkers();
-                case OK -> {
-                    LOG.info("Successfully got a list of workers: {} workers", children.size());
-                    handleWorkersUpdated(children);
+    private final AsyncCallback.ChildrenCallback workersChildrenCallback =
+            (rc, path, ctx, children) -> {
+                switch (KeeperException.Code.get(rc)) {
+                    case CONNECTIONLOSS -> getWorkers();
+                    case OK -> {
+                        LOG.info("Successfully got a list of workers: {} workers", children.size());
+                        handleWorkersUpdated(children);
+                    }
+                    default -> LOG.error(
+                            "getChildren(/workers) failed",
+                            KeeperException.create(KeeperException.Code.get(rc), path)
+                    );
                 }
-                default -> LOG.error(
-                        "getChildren(/workers) failed",
-                        KeeperException.create(KeeperException.Code.get(rc), path)
-                );
-            }
-        }
-    };
+            };
 
     private void getWorkers() {
         zk.getChildren(

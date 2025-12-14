@@ -36,36 +36,32 @@ public class TasksWatcher {
         this.taskAssignmentManager = taskAssignmentManager;
     }
 
-    private final Watcher tasksChildrenWatcher = new Watcher() {
-        @Override
-        public void process(WatchedEvent event) {
-            if (
-                    event.getType() == Event.EventType.NodeChildrenChanged &&
-                            "/tasks".equals(event.getPath())
-            ) {
-                // The watch fires only once. We must call getTasks() to re-register a new watch on /tasks.
-                // Without this, we would miss future tasks join/leave events.
-                getTasks();
-            }
-        }
-    };
-
-    private final AsyncCallback.ChildrenCallback tasksChildrenCallback = new AsyncCallback.ChildrenCallback() {
-        @Override
-        public void processResult(int rc, String path, Object ctx, List<String> children) {
-            switch (KeeperException.Code.get(rc)) {
-                case CONNECTIONLOSS -> getTasks();
-                case OK -> {
-                    LOG.info("Successfully got list of tasks: {}", children.size());
-                    handleTasksUpdated(children);
+    private final Watcher tasksChildrenWatcher =
+            event -> {
+                if (
+                        event.getType() == Watcher.Event.EventType.NodeChildrenChanged &&
+                                "/tasks".equals(event.getPath())
+                ) {
+                    // The watch fires only once. We must call getTasks() to re-register a new watch on /tasks.
+                    // Without this, we would miss future tasks join/leave events.
+                    getTasks();
                 }
-                default -> LOG.error(
-                        "getChildren(/tasks) failed",
-                        KeeperException.create(KeeperException.Code.get(rc), path)
-                );
-            }
-        }
-    };
+            };
+
+    private final AsyncCallback.ChildrenCallback tasksChildrenCallback =
+            (rc, path, ctx, children) -> {
+                switch (KeeperException.Code.get(rc)) {
+                    case CONNECTIONLOSS -> getTasks();
+                    case OK -> {
+                        LOG.info("Successfully got list of tasks: {}", children.size());
+                        handleTasksUpdated(children);
+                    }
+                    default -> LOG.error(
+                            "getChildren(/tasks) failed",
+                            KeeperException.create(KeeperException.Code.get(rc), path)
+                    );
+                }
+            };
 
     // Update cache and trigger taskName assignment to next available worker.
     private void handleTasksUpdated(List<String> tasks) {

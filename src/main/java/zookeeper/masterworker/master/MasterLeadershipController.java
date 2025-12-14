@@ -4,7 +4,6 @@ import zookeeper.masterworker.IdGenerator;
 import zookeeper.masterworker.master.tasks.TasksWatcher;
 import zookeeper.masterworker.master.tasks.WorkersWatcher;
 import org.apache.zookeeper.*;
-import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,32 +32,27 @@ public class MasterLeadershipController {
         return serverId;
     }
 
-    Watcher masterExistsWatcher = new Watcher() {
-        @Override
-        public void process(WatchedEvent event) {
-            if (event.getType() == Event.EventType.NodeDeleted) {
-                if ("/master".equals(event.getPath())) {
-                    runForMaster();
-                }
+    Watcher masterExistsWatcher = event -> {
+        if (event.getType() == Watcher.Event.EventType.NodeDeleted) {
+            if ("/master".equals(event.getPath())) {
+                runForMaster();
             }
         }
     };
 
-    private final AsyncCallback.StatCallback masterExistsCallback = new AsyncCallback.StatCallback() {
-        @Override
-        public void processResult(int rc, String path, Object ctx, Stat stat) {
-            switch (KeeperException.Code.get(rc)) {
-                case CONNECTIONLOSS -> masterExists();
-                case OK -> state = MasterState.NOT_ELECTED;
-                case NONODE -> {
-                    state = MasterState.RUNNING;
-                    runForMaster();
-                    LOG.info("Looks like previous master is gone. Let's run for master again.");
+    private final AsyncCallback.StatCallback masterExistsCallback =
+            (rc, path, ctx, stat) -> {
+                switch (KeeperException.Code.get(rc)) {
+                    case CONNECTIONLOSS -> masterExists();
+                    case OK -> state = MasterState.NOT_ELECTED;
+                    case NONODE -> {
+                        state = MasterState.RUNNING;
+                        runForMaster();
+                        LOG.info("Looks like previous master is gone. Let's run for master again.");
+                    }
+                    default -> checkMaster();
                 }
-                default -> checkMaster();
-            }
-        }
-    };
+            };
 
     void masterExists() {
         zk.exists(
@@ -69,61 +63,56 @@ public class MasterLeadershipController {
         );
     }
 
-    private final AsyncCallback.DataCallback masterCheckCallback = new AsyncCallback.DataCallback() {
-        @Override
-        public void processResult(int rc, String path, Object ctx, byte[] data, Stat stat) {
-            switch (KeeperException.Code.get(rc)) {
-                case CONNECTIONLOSS -> checkMaster();
-                case NONODE -> {
-                    state = MasterState.RUNNING;
-                    runForMaster();
-                }
-                case OK -> {
-                    if (serverId.equals(new String(data))) {
-                        state = MasterState.ELECTED;
-                        takeLeadership();
-                    } else {
-                        state = MasterState.NOT_ELECTED;
-                        masterExists();
+    private final AsyncCallback.DataCallback masterCheckCallback =
+            (rc, path, ctx, data, stat) -> {
+                switch (KeeperException.Code.get(rc)) {
+                    case CONNECTIONLOSS -> checkMaster();
+                    case NONODE -> {
+                        state = MasterState.RUNNING;
+                        runForMaster();
                     }
+                    case OK -> {
+                        if (serverId.equals(new String(data))) {
+                            state = MasterState.ELECTED;
+                            takeLeadership();
+                        } else {
+                            state = MasterState.NOT_ELECTED;
+                            masterExists();
+                        }
+                    }
+                    default -> LOG.error(
+                            "Error when reading data.",
+                            KeeperException.create(KeeperException.Code.get(rc), path)
+                    );
                 }
-                default -> LOG.error(
-                        "Error when reading data.",
-                        KeeperException.create(KeeperException.Code.get(rc), path)
-                );
-            }
-        }
-    };
+            };
 
     void checkMaster() {
         zk.getData("/master", false, masterCheckCallback, null);
     }
 
-    private final AsyncCallback.Create2Callback masterCreateCallback = new AsyncCallback.Create2Callback() {
-
-        @Override
-        public void processResult(int rc, String path, Object ctx, String name, Stat stat) {
-            switch (KeeperException.Code.get(rc)) {
-                case CONNECTIONLOSS -> checkMaster();
-                case OK -> {
-                    state = MasterState.ELECTED;
-                    takeLeadership();
+    private final AsyncCallback.Create2Callback masterCreateCallback =
+            (rc, path, ctx, name, stat) -> {
+                switch (KeeperException.Code.get(rc)) {
+                    case CONNECTIONLOSS -> checkMaster();
+                    case OK -> {
+                        state = MasterState.ELECTED;
+                        takeLeadership();
+                    }
+                    case NODEEXISTS -> {
+                        state = MasterState.NOT_ELECTED;
+                        masterExists();
+                    }
+                    default -> {
+                        state = MasterState.NOT_ELECTED;
+                        LOG.error(
+                                "Something went wrong when running for master.",
+                                KeeperException.create(KeeperException.Code.get(rc), path)
+                        );
+                    }
                 }
-                case NODEEXISTS -> {
-                    state = MasterState.NOT_ELECTED;
-                    masterExists();
-                }
-                default -> {
-                    state = MasterState.NOT_ELECTED;
-                    LOG.error(
-                            "Something went wrong when running for master.",
-                            KeeperException.create(KeeperException.Code.get(rc), path)
-                    );
-                }
-            }
-            System.out.println("I'm" + (state == MasterState.ELECTED ? "" : "not") + " the leader");
-        }
-    };
+                System.out.println("I'm" + (state == MasterState.ELECTED ? "" : "not") + " the leader");
+            };
 
     private void createMaster() {
         zk.create(

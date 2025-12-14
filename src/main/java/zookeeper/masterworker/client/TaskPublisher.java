@@ -21,37 +21,34 @@ public class TaskPublisher {
             String taskData,
             CompletableFuture<Task> future
     ) {
-        return new AsyncCallback.StringCallback() {
-            @Override
-            public void processResult(int rc, String path, Object ctx, String name) {
-                if (future.isDone()) return;
+        return (rc, path, ctx, name) -> {
+            if (future.isDone()) return;
 
-                KeeperException.Code code = KeeperException.Code.get(rc);
-                switch (code) {
-                    case CONNECTIONLOSS -> {
-                        // Retry must re-issue the zk.create request (new attempt),
-                        // but complete the SAME caller-visible future.
-                        submitAttempt(taskData, future);
-                    }
-                    case OK -> {
-                        Task task = new Task(name, taskData);
+            KeeperException.Code code = KeeperException.Code.get(rc);
+            switch (code) {
+                case CONNECTIONLOSS -> {
+                    // Retry must re-issue the zk.create request (new attempt),
+                    // but complete the SAME caller-visible future.
+                    submitAttempt(taskData, future);
+                }
+                case OK -> {
+                    Task task = new Task(name, taskData);
 
-                        String statusPath = name.replace("/tasks/", "/status/");
-                        statusWatcher.watchStatus(statusPath, task);
+                    String statusPath = name.replace("/tasks/", "/status/");
+                    statusWatcher.watchStatus(statusPath, task);
 
-                        future.complete(task);
-                    }
-                    case SESSIONEXPIRED -> {
-                        KeeperException ex = KeeperException.create(code, path);
-                        future.completeExceptionally(
-                                new IllegalStateException("ZooKeeper session expired", ex)
-                        );
-                    }
-                    default -> {
-                        KeeperException ex = KeeperException.create(code, path);
-                        LOG.error("Failed to submit task {}", taskData, ex);
-                        future.completeExceptionally(ex);
-                    }
+                    future.complete(task);
+                }
+                case SESSIONEXPIRED -> {
+                    KeeperException ex = KeeperException.create(code, path);
+                    future.completeExceptionally(
+                            new IllegalStateException("ZooKeeper session expired", ex)
+                    );
+                }
+                default -> {
+                    KeeperException ex = KeeperException.create(code, path);
+                    LOG.error("Failed to submit task {}", taskData, ex);
+                    future.completeExceptionally(ex);
                 }
             }
         };
