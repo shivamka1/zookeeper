@@ -27,22 +27,22 @@ import java.util.Optional;
  * a watcher event.</p>
  */
 public class ChildrenCache {
-    protected Optional<List<String>> children;
+    protected List<String> children;
 
     public ChildrenCache() {
-        this.children = Optional.empty();
+        this.children = null;
     }
 
     public ChildrenCache(List<String> children) {
-        this.children = Optional.of(new ArrayList<>(children));
+        this.children = new ArrayList<>(children);
     }
 
     public boolean isEmpty() {
-        return children.isEmpty();
+        return children == null || children.isEmpty();
     }
 
     public List<String> getList() {
-        return children.orElseGet(ArrayList::new);
+        return children == null ? new ArrayList<>() : new ArrayList<>(children);
     }
 
     public List<String> refreshCacheAndGetAddedWorkersSinceLastUpdate(List<String> newChildren) {
@@ -52,13 +52,13 @@ public class ChildrenCache {
             diff.addAll(newChildren);
         } else {
             for (String s : newChildren) {
-                if (!children.get().contains(s)) {
+                if (!children.contains(s)) {
                     diff.add(s);
                 }
             }
         }
 
-        this.children = Optional.of(new ArrayList<>(newChildren));
+        this.children = new ArrayList<>(newChildren);
 
         return diff;
     }
@@ -66,15 +66,15 @@ public class ChildrenCache {
     public List<String> refreshCacheAndGetRemovedWorkersSinceLastUpdate(List<String> newChildren) {
         ArrayList<String> diff = new ArrayList<>();
 
-        if (children.isPresent()) {
-            for (String s : children.get()) {
+        if (children != null) {
+            for (String s : children) {
                 if (!newChildren.contains(s)) {
                     diff.add(s);
                 }
             }
         }
 
-        this.children = Optional.of(new ArrayList<>(newChildren));
+        this.children = new ArrayList<>(newChildren);
 
         return diff;
     }
