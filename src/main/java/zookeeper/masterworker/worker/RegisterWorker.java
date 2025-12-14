@@ -12,7 +12,7 @@ public class RegisterWorker {
 
     RegisterWorker(String workerName, ZooKeeper zk) {
         this.workerName = workerName;
-        this.zk =zk;
+        this.zk = zk;
     }
 
     private final AsyncCallback.StringCallback createWorkerCallback =
@@ -20,22 +20,14 @@ public class RegisterWorker {
                 @Override
                 public void processResult(int rc, String path, Object ctx, String name) {
                     switch (KeeperException.Code.get(rc)) {
-                        case CONNECTIONLOSS:
-                            // Retry registration
-                            register();
-                            break;
-                        case OK:
-                            LOG.info("Worker registered successfully: {}", workerName);
-                            break;
-                        case NODEEXISTS:
-                            LOG.warn("Worker already registered: {}", workerName);
-                            break;
-                        default:
-                            LOG.error(
-                                    "Error registering worker {}",
-                                    workerName,
-                                    KeeperException.create(KeeperException.Code.get(rc), path)
-                            );
+                        case CONNECTIONLOSS -> register();
+                        case OK -> LOG.info("Worker registered successfully: {}", workerName);
+                        case NODEEXISTS -> LOG.warn("Worker already registered: {}", workerName);
+                        default -> LOG.error(
+                                "Error registering worker {}",
+                                workerName,
+                                KeeperException.create(KeeperException.Code.get(rc), path)
+                        );
                     }
                 }
             };

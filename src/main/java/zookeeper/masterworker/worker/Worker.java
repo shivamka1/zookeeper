@@ -20,11 +20,9 @@ public class Worker {
     private Bootstrapper bootstrapper;
 
     private RegisterWorker registerWorker;
-    private StatusUpdate statusUpdate;
 
     private ThreadPoolExecutor executor;
-    private TaskExecutor taskExecutor;
-    private TaskWatcher taskWatcher;
+    private AssignedTasksWatcher assignedTasksWatcher;
 
     Worker(String connectString) {
         this.connectString = connectString;
@@ -42,18 +40,19 @@ public class Worker {
         zk = new ZooKeeper(this.connectString, 15000, sessionState);
         bootstrapper = new Bootstrapper(zk);
         registerWorker = new RegisterWorker(workerName, zk);
-        statusUpdate = new StatusUpdate(workerName, zk);
 
+        StatusUpdate statusUpdate = new StatusUpdate(workerName, zk);
         executor = new ThreadPoolExecutor(
                 1, 1, 1000L,
                 TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(200)
         );
-        taskExecutor = new TaskExecutor(zk, workerName, statusUpdate, executor);
-        taskWatcher = new TaskWatcher(zk, workerName, taskExecutor);
+        TaskExecutor taskExecutor = new TaskExecutor(zk, workerName, statusUpdate, executor);
+        assignedTasksWatcher = new AssignedTasksWatcher(zk, workerName, taskExecutor);
     }
 
     void stopZk() throws InterruptedException {
+        if (executor != null) executor.shutdownNow();
         if (zk != null) zk.close();
     }
 
@@ -93,6 +92,9 @@ public class Worker {
 
         // Register the worker so that the leader knows that the worker is here
         worker.registerWorker.register();
+
+        // Start watching for assignments.
+        worker.assignedTasksWatcher.startWatching();
 
         while (!worker.isExpired()) {
             Thread.sleep(1000);
