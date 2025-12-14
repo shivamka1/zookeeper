@@ -4,19 +4,15 @@ import org.apache.zookeeper.AsyncCallback;
 import org.apache.zookeeper.KeeperException;
 import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.data.Stat;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
 
-public class StatusUpdate {
-    private static final Logger LOG = LoggerFactory.getLogger(StatusUpdate.class);
-
+public class WorkerStatusUpdater {
     private final ZooKeeper zk;
     private final String workerName;
     private String status;
 
-    StatusUpdate(String workerName, ZooKeeper zk) {
+    WorkerStatusUpdater(String workerName, ZooKeeper zk) {
         this.workerName = workerName;
         this.zk = zk;
     }

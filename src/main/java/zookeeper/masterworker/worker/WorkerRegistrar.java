@@ -4,13 +4,13 @@ import org.apache.zookeeper.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class RegisterWorker {
-    private static final Logger LOG = LoggerFactory.getLogger(RegisterWorker.class);
+public class WorkerRegistrar {
+    private static final Logger LOG = LoggerFactory.getLogger(WorkerRegistrar.class);
 
     private final ZooKeeper zk;
     private final String workerName;
 
-    RegisterWorker(String workerName, ZooKeeper zk) {
+    WorkerRegistrar(String workerName, ZooKeeper zk) {
         this.workerName = workerName;
         this.zk = zk;
     }

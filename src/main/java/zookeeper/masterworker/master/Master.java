@@ -16,7 +16,7 @@ public class Master {
 
     private Bootstrapper bootstrapper;
     private final SessionState sessionState = new SessionState();
-    private MasterElection masterElection;
+    private MasterLeadershipController masterLeadershipController;
 
     public Master(String connectString) {
         this.connectString = connectString;
@@ -31,11 +31,11 @@ public class Master {
     }
 
     MasterState getMasterState() {
-        return masterElection.getMasterState();
+        return masterLeadershipController.getMasterState();
     }
 
     String getServerId() {
-        return masterElection.getServerId();
+        return masterLeadershipController.getServerId();
     }
 
     void startZk() throws IOException {
@@ -48,7 +48,7 @@ public class Master {
         TaskAssignmentManager taskAssignmentManager = new TaskAssignmentManager(zk, workersWatcher::getCurrentWorkers);
         TasksWatcher tasksWatcher = new TasksWatcher(zk, taskAssignmentManager);
 
-        masterElection = new MasterElection(zk, workersWatcher, tasksWatcher);
+        masterLeadershipController = new MasterLeadershipController(zk, workersWatcher, tasksWatcher);
     }
 
     void stopZk() throws InterruptedException {
@@ -72,7 +72,7 @@ public class Master {
         }
 
         master.bootstrap();
-        master.masterElection.runForMaster();
+        master.masterLeadershipController.runForMaster();
 
         while (!master.isExpired()) {
             Thread.sleep(1000);

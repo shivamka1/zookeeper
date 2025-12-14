@@ -8,8 +8,8 @@ import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class MasterElection {
-    private static final Logger LOG = LoggerFactory.getLogger(MasterElection.class);
+public class MasterLeadershipController {
+    private static final Logger LOG = LoggerFactory.getLogger(MasterLeadershipController.class);
 
     private final ZooKeeper zk;
     private final WorkersWatcher workersWatcher;
@@ -19,7 +19,7 @@ public class MasterElection {
 
     private volatile MasterState state = MasterState.RUNNING;
 
-    MasterElection(ZooKeeper zk, WorkersWatcher workersWatcher, TasksWatcher tasksWatcher) {
+    MasterLeadershipController(ZooKeeper zk, WorkersWatcher workersWatcher, TasksWatcher tasksWatcher) {
         this.zk = zk;
         this.workersWatcher = workersWatcher;
         this.tasksWatcher = tasksWatcher;

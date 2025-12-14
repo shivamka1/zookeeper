@@ -14,7 +14,7 @@ public class Client {
     private final String connectString;
 
     private final SessionState sessionState;
-    private SubmitTask submitTask;
+    private TaskPublisher taskPublisher;
     private StatusWatcher statusWatcher;
 
     Client(String connectString) {
@@ -25,7 +25,7 @@ public class Client {
     void startZk() throws IOException {
         zk = new ZooKeeper(connectString, 15000, sessionState);
         statusWatcher = new StatusWatcher(zk);
-        submitTask = new SubmitTask(zk, statusWatcher);
+        taskPublisher = new TaskPublisher(zk, statusWatcher);
     }
 
     void stopZk() throws InterruptedException {
@@ -49,12 +49,12 @@ public class Client {
             Thread.sleep(100);
         }
 
-        Task task1 = client.submitTask.submit("Sample task 1")
+        Task task1 = client.taskPublisher.submit("Sample task 1")
                 .exceptionally(e -> {
                     throw new RuntimeException("Failed to submit task", e);
                 })
                 .join();
-        Task task2 = client.submitTask.submit("Sample task 2")
+        Task task2 = client.taskPublisher.submit("Sample task 2")
                 .exceptionally(e -> {
                     throw new RuntimeException("Failed to submit task", e);
                 })

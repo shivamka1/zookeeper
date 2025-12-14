@@ -1,6 +1,5 @@
 package zookeeper.masterworker;
 
-import zookeeper.masterworker.master.tasks.TaskCtx;
 import org.apache.zookeeper.AsyncCallback;
 import org.apache.zookeeper.CreateMode;
 import org.apache.zookeeper.KeeperException;
@@ -8,6 +7,7 @@ import org.apache.zookeeper.ZooKeeper;
 import org.apache.zookeeper.data.Stat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import zookeeper.masterworker.master.tasks.TaskCtx;
 
 import java.util.List;
 import java.util.Random;
@@ -175,13 +175,13 @@ public class IdempotentTaskAssignmentManager {
             return;
         }
 
-        String designateWorker = workers.get(random.nextInt(workers.size()));
-        String assignmentPath = "/assign/" + designateWorker + "/" + taskName;
+        String assignedWorker = workers.get(random.nextInt(workers.size()));
+        String assignmentPath = "/assign/" + assignedWorker + "/" + taskName;
 
         LOG.info(
                 "Assigning task {} to worker {} at {}",
                 taskName,
-                designateWorker,
+                assignedWorker,
                 assignmentPath
         );
 
@@ -191,7 +191,7 @@ public class IdempotentTaskAssignmentManager {
                 OPEN_ACL_UNSAFE,
                 CreateMode.PERSISTENT,
                 assignTaskCallback,
-                new TaskCtx(assignmentPath, taskName, taskData)
+                new TaskCtx(assignmentPath, assignedWorker, taskName, taskData)
         );
     }
 

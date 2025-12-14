@@ -6,13 +6,13 @@ import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.CompletableFuture;
 
-public class SubmitTask {
-    private static final Logger LOG = LoggerFactory.getLogger(SubmitTask.class);
+public class TaskPublisher {
+    private static final Logger LOG = LoggerFactory.getLogger(TaskPublisher.class);
 
     private final ZooKeeper zk;
     private final StatusWatcher statusWatcher;
 
-    public SubmitTask(ZooKeeper zk, StatusWatcher statusWatcher) {
+    public TaskPublisher(ZooKeeper zk, StatusWatcher statusWatcher) {
         this.zk = zk;
         this.statusWatcher = statusWatcher;
     }
